@@ -1,0 +1,95 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, system-ui, sans-serif;
+  background: #f4f1ff;
+  color: #201a36;
+}
+
+body {
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.layout {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.card {
+  background: white;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 20px 45px rgba(43, 20, 91, 0.12);
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.75rem;
+  color: #7a5af8;
+}
+
+.story-form {
+  display: grid;
+  gap: 16px;
+}
+
+.story-form label {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid #d6cef7;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+button {
+  border: none;
+  border-radius: 999px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #7a5af8, #4f46e5);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.hero-image img {
+  width: 100%;
+  border-radius: 20px;
+}
+
+.status {
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.error {
+  color: #b42318;
+}
+
+ol {
+  padding-left: 20px;
+}
