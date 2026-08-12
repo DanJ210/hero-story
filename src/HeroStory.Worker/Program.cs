@@ -1,12 +1,26 @@
-using HeroStory.Core;
-using HeroStory.Infrastructure;
-using HeroStory.Worker.Services;
+using global::HeroStory.Api.Services;
+using global::HeroStory.Infrastructure.Clients;
+using global::HeroStory.Infrastructure.Data;
+using global::HeroStory.Infrastructure.Storage;
+using Microsoft.EntityFrameworkCore;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
-builder.Services.AddHeroStoryCore();
-builder.Services.AddHeroStoryInfrastructure(builder.Configuration);
-builder.Services.AddHostedService<ImageGenerationWorker>();
+var configuration = builder.Configuration;
+var connectionString = configuration["DB_CONNECTION_STRING"] ?? "Server=(localdb)\\MSSQLLocalDB;Database=HeroStoryDb;Trusted_Connection=True;TrustServerCertificate=True";
+
+builder.Services.Configure<global::HeroStory.Worker.WorkerOptions>(options =>
+{
+    options.PollIntervalSeconds = int.TryParse(configuration["AZURE_QUEUE_POLL_INTERVAL_SECONDS"], out var poll) ? poll : 5;
+    options.MaxDequeueCount = int.TryParse(configuration["AZURE_QUEUE_MAX_DEQUEUE_COUNT"], out var max) ? max : 3;
+});
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddSingleton<AzureQueueClient>();
+builder.Services.AddSingleton<AzureBlobService>();
+builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+builder.Services.AddScoped<global::HeroStory.Worker.IImageGeneratorStrategy, global::HeroStory.Worker.PlaceholderImageStrategy>();
+builder.Services.AddScoped<global::HeroStory.Worker.IImageGeneratorStrategy, global::HeroStory.Worker.DallE3Strategy>();
+builder.Services.AddHostedService<global::HeroStory.Worker.ImageGenerationWorker>();
 
 var host = builder.Build();
 host.Run();
