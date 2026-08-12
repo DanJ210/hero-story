@@ -1,0 +1,1 @@
+using HeroStory.Core.Enums; namespace HeroStory.Api.Services; public interface IModerationService { Task<(ModerationStatus Status, string? Detail)> ModerateInputAsync(string input, CancellationToken cancellationToken); Task<(ModerationStatus Status, string? Detail, string Narrative)> ModerateOutputAsync(string output, CancellationToken cancellationToken); }

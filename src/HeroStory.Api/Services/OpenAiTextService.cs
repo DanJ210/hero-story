@@ -4,13 +4,13 @@ namespace HeroStory.Api.Services;
 
 public class OpenAiTextService : IOpenAiTextService
 {
-    private readonly OpenAiClient _client;
+    private readonly OpenAiClient _openAiClient;
 
-    public OpenAiTextService(OpenAiClient client)
+    public OpenAiTextService(OpenAiClient openAiClient)
     {
-        _client = client;
+        _openAiClient = openAiClient;
     }
 
     public Task<string> GenerateNarrativeAsync(string prompt, CancellationToken cancellationToken)
-        => _client.CreateChatCompletionAsync(prompt, cancellationToken);
+        => _openAiClient.CreateChatCompletionAsync(prompt, cancellationToken);
 }

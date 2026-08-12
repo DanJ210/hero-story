@@ -1,0 +1,1 @@
+using HeroStory.Core.Enums; namespace HeroStory.Api.DTOs.Scene; public sealed record SceneDto(Guid Id, Guid SessionId, int SequenceNumber, string ChoiceText, string NarrativeText, string? ImageUrl, DateTime? ImageUrlExpiresAt, ModerationStatus ModerationStatus, string? ModerationDetail, DateTime CreatedAt, DateTime UpdatedAt);

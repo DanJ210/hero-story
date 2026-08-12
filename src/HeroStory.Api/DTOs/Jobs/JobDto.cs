@@ -1,0 +1,1 @@
+using HeroStory.Core.Enums; namespace HeroStory.Api.DTOs.Jobs; public sealed record JobDto(Guid Id, Guid SceneId, Guid SessionId, JobStatus Status, int AttemptCount, string? ErrorDetail, DateTime CreatedAt, DateTime UpdatedAt, DateTime? CompletedAt);
