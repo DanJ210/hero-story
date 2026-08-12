@@ -58,7 +58,10 @@ public class SceneService : ISceneService
         var narrative = await _openAiTextService.GenerateNarrativeAsync(prompt, cancellationToken);
         var outputModeration = await _moderationService.ModerateOutputAsync(narrative, cancellationToken);
 
-        var sequenceNumber = session.Scenes.Count + 1;
+var sequenceNumber = (await _dbContext.Scenes
+    .Where(x => x.SessionId == sessionId)
+    .Select(x => (int?)x.SequenceNumber)
+    .MaxAsync(cancellationToken) ?? 0) + 1;
         var scene = new Scene
         {
             Id = Guid.NewGuid(),

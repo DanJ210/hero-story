@@ -24,8 +24,19 @@ if (builder.Environment.IsDevelopment())
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseInMemoryDatabase("hero-story"));
+{
+    var connectionString = builder.Configuration.GetConnectionString("Default")
+        ?? builder.Configuration["SQLSERVER_CONNECTION_STRING"];
 
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        options.UseSqlServer(connectionString);
+    }
+    else
+    {
+        options.UseInMemoryDatabase("hero-story");
+    }
+});
 builder.Services
     .AddIdentityCore<ApplicationUser>(options =>
     {

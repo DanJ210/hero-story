@@ -12,14 +12,23 @@ public class ModerationServiceTests
     public async Task ModerateInputAsync_RejectsKeyword()
     {
         var client = new Mock<OpenAiClient>(new HttpClient(), new ConfigurationBuilder().AddInMemoryCollection().Build());
-        var keywordPath = Path.Combine(Directory.GetCurrentDirectory(), "keywords-test.txt");
-        await File.WriteAllTextAsync(keywordPath, "forbidden");
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["MODERATION_KEYWORD_LIST_PATH"] = keywordPath }).Build();
+var keywordPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}-keywords-test.txt");
+try
+{
+    await File.WriteAllTextAsync(keywordPath, "forbidden");
+    var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["MODERATION_KEYWORD_LIST_PATH"] = keywordPath
+    }).Build();
 
-        var service = new ModerationService(client.Object, config);
-        var result = await service.ModerateInputAsync("A forbidden spell", CancellationToken.None);
+    var service = new ModerationService(client.Object, config);
+    var result = await service.ModerateInputAsync("A forbidden spell", CancellationToken.None);
 
-        Assert.Equal(ModerationStatus.Rejected, result.Status);
-        File.Delete(keywordPath);
+    Assert.Equal(ModerationStatus.Rejected, result.Status);
+}
+finally
+{
+    if (File.Exists(keywordPath)) File.Delete(keywordPath);
+}
     }
 }

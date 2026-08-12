@@ -16,13 +16,16 @@ httpClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const authStore = useAuthStore();
-    const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest?._retry && authStore.refreshToken) {
+    const originalRequest = error.config as (typeof error.config & { _retry?: boolean }) | undefined;
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && authStore.refreshToken) {
       originalRequest._retry = true;
       await authStore.refresh();
-      originalRequest.headers.Authorization = `Bearer ${authStore.accessToken}`;
+      originalRequest.headers = originalRequest.headers ?? {};
+      (originalRequest.headers as any).Authorization = `Bearer ${authStore.accessToken}`;
       return httpClient(originalRequest);
     }
+
     return Promise.reject(error);
   }
 );
