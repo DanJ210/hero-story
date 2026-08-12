@@ -1,1 +1,8 @@
-import { defineConfig } from "vite";`nimport vue from "@vitejs/plugin-vue";`n`nexport default defineConfig({`n  plugins: [vue()],`n  server: { host: "0.0.0.0", port: 5173 },`n  test: { environment: "jsdom" }`n});
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+
+export default defineConfig({
+  plugins: [vue()],
+  server: { host: "0.0.0.0", port: 5173 },
+  test: { environment: "jsdom" }
+});
