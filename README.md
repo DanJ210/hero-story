@@ -105,3 +105,4 @@ See [docs/api-summary.md](docs/api-summary.md) and [docs/architecture.md](docs/a
 - [Development guide](docs/development-guide.md)
 - [Roadmap](docs/roadmap.md)
 - [Handoff plan baseline](docs/handoff-plan.md)
+- [Copilot instructions](.github/copilot-instructions.md)
