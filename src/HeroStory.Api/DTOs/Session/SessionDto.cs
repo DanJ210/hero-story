@@ -1,0 +1,1 @@
+using HeroStory.Core.Enums; namespace HeroStory.Api.DTOs.Session; public sealed record SessionDto(Guid Id, string Title, string Genre, string HeroArchetype, string HeroName, SessionStatus Status, int ModerationFailureCount, DateTime CreatedAt, DateTime UpdatedAt);

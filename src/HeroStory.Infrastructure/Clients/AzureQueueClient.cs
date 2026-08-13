@@ -22,19 +22,19 @@ public class AzureQueueClient
         _poisonQueueClient.CreateIfNotExists();
     }
 
-    public Task EnqueueAsync(string message, CancellationToken cancellationToken)
+    public virtual Task EnqueueAsync(string message, CancellationToken cancellationToken)
         => _queueClient.SendMessageAsync(message, cancellationToken: cancellationToken);
 
-    public async Task<IReadOnlyList<QueueMessage>> DequeueAsync(int maxMessages, CancellationToken cancellationToken)
+    public virtual async Task<IReadOnlyList<QueueMessage>> DequeueAsync(int maxMessages, CancellationToken cancellationToken)
     {
         var visibilityTimeout = int.TryParse(_configuration["AZURE_QUEUE_VISIBILITY_TIMEOUT_SECONDS"], out var parsed) ? parsed : 30;
         var result = await _queueClient.ReceiveMessagesAsync(maxMessages, TimeSpan.FromSeconds(visibilityTimeout), cancellationToken);
         return result.Value;
     }
 
-    public Task DeleteMessageAsync(string messageId, string popReceipt, CancellationToken cancellationToken)
+    public virtual Task DeleteMessageAsync(string messageId, string popReceipt, CancellationToken cancellationToken)
         => _queueClient.DeleteMessageAsync(messageId, popReceipt, cancellationToken);
 
-    public Task MoveToPoisonAsync(string message, CancellationToken cancellationToken)
+    public virtual Task MoveToPoisonAsync(string message, CancellationToken cancellationToken)
         => _poisonQueueClient.SendMessageAsync(message, cancellationToken: cancellationToken);
 }
