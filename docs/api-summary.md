@@ -6,21 +6,20 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 
 ## Authentication endpoints (`/api/auth`)
 
-- `POST /register`
+- `POST /api/auth/register`
   - Creates user account.
   - Returns `201 Created` with registration response.
-- `POST /login`
+- `POST /api/auth/login`
   - Authenticates user credentials.
   - Returns token payload (access + refresh).
-- `POST /refresh`
+- `POST /api/auth/refresh`
   - Exchanges refresh token for new token payload.
-- `POST /logout`
+- `POST /api/auth/logout`
   - Revokes refresh token context.
   - Returns `204 No Content`.
-- `DELETE /account`
+- `DELETE /api/auth/account`
   - Authenticated account deletion request.
   - Returns `202 Accepted`.
-
 ## Story session endpoints (`/api/sessions`)
 
 - `GET /api/sessions`
