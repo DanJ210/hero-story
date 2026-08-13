@@ -13,8 +13,8 @@
 2. Populate secrets and local values:
    - `JWT_SECRET`
    - `OPENAI_API_KEY`
-   - `MSSQL_SA_PASSWORD`
-   - storage connection strings and queue/container names
+   - SQL connection strings: `SQLSERVER_CONNECTION_STRING` (API) / `ConnectionStrings__Default`, and `DB_CONNECTION_STRING` (worker), pointing to the same SQL Server instance
+   - `MSSQL_SA_PASSWORD` (only needed if you run SQL Server via Docker)
 3. Ensure API/worker/frontend URLs are aligned (`JWT_ISSUER`, `JWT_AUDIENCE`, `VITE_API_BASE_URL`).
 
 ## Running services locally
