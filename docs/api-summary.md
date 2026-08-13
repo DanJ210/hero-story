@@ -46,10 +46,11 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 - `GET /api/sessions/{id}/scenes/{sceneId}`
   - Retrieves scene detail.
 
-## Generation jobs
+## Generation jobs (`/api/jobs`)
 
-Generation job support is implemented via `GenerationJobsController` and worker integration. Jobs are persisted and processed asynchronously through queue messages.
-
+- `GET /api/jobs/{jobId}`
+  - Retrieves a single generation job (status, attempts, error detail).
+  - Returns `404` if not found.
 ## Cross-cutting behavior
 
 - JWT bearer auth is required except on allow-anonymous auth endpoints.
