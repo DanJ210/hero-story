@@ -1,6 +1,6 @@
 # API summary
 
-Base route prefix: `api/`
+Base route prefix: `/api`
 
 The API is implemented in `src/HeroStory.Api` using controller-based endpoints and DTO contracts.
 
