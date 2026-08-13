@@ -41,7 +41,7 @@ See [docs/development-guide.md](docs/development-guide.md) for toolchain expecta
 
 1. **Create local environment file**
    - Copy `.env.example` to `.env`.
-   - Fill all `CHANGEME` values (`JWT_SECRET`, `OPENAI_API_KEY`, `MSSQL_SA_PASSWORD`, etc.).
+   - Replace placeholders and set SQL connection strings: `JWT_SECRET`, `OPENAI_API_KEY`, and ensure both `SQLSERVER_CONNECTION_STRING` (API) and `DB_CONNECTION_STRING` (worker) point to the same SQL Server instance.
 2. **Start local dependencies with Docker Compose**
    - This repository currently does not include a committed `docker-compose.yml`; use your local/standard stack for SQL Server + Azurite with values matching `.env`.
 3. **Run API**
