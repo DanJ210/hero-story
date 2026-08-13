@@ -51,7 +51,18 @@ builder.Services
     .AddEntityFrameworkStores<AppDbContext>()
     .AddSignInManager();
 
-var jwtSecret = builder.Configuration["JWT_SECRET"] ?? "12345678901234567890123456789012";
+var jwtSecret = builder.Configuration["JWT_SECRET"];
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        jwtSecret = "12345678901234567890123456789012";
+    }
+    else
+    {
+        throw new InvalidOperationException("JWT_SECRET is required.");
+    }
+}
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
