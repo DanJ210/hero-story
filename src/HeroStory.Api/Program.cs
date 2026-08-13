@@ -140,14 +140,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.Use(async (context, next) =>
+if (!app.Environment.IsDevelopment())
 {
-    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["X-Frame-Options"] = "DENY";
-    context.Response.Headers["Referrer-Policy"] = "no-referrer";
-    context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data: blob:; connect-src 'self' http://localhost:8080; style-src 'self' 'unsafe-inline'; script-src 'self';";
-    await next();
-});
+    app.Use(async (context, next) =>
+    {
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+        context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data: blob:; connect-src 'self' http://localhost:8080; style-src 'self' 'unsafe-inline'; script-src 'self';";
+        await next();
+    });
+}
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
