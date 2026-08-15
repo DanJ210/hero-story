@@ -57,12 +57,88 @@ public class SceneServiceTests
         Assert.Equal("Northern pass", result.Location);
         Assert.Equal(1, result.StoryStateSchemaVersion);
         Assert.Equal(2, result.SuggestedActions.Count);
-        Assert.Equal(StoryBeat.Major, result.StoryBeat);
+        Assert.Equal(StoryBeat.Opening, result.StoryBeat);
+        Assert.Equal(ArtworkStatus.Queued, result.ArtworkStatus);
         Assert.False(result.IsEpisodeComplete);
 
         var storedScene = await dbContext.Scenes.SingleAsync();
         Assert.Equal(result.SceneSummary, storedScene.SceneSummary);
         Assert.Contains("northern pass", storedScene.StoryStateJson);
+        Assert.Single(dbContext.GenerationJobs);
+        queue.Verify(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateSceneAsync_DoesNotQueueArtworkForLaterStandardTurn()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Standard turn");
+        session.Scenes.Add(CreatePreviousScene(session.Id, 1, "OPENING_STATE"));
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var queue = CreateQueue();
+        var service = new SceneService(dbContext, CreateApprovedModeration().Object, CreateTextService(StoryBeat.Standard).Object, queue.Object);
+
+        var result = await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue patrol"), CancellationToken.None);
+
+        Assert.Equal(StoryBeat.Standard, result.StoryBeat);
+        Assert.Equal(ArtworkStatus.NotRequested, result.ArtworkStatus);
+        Assert.Empty(dbContext.GenerationJobs);
+        queue.Verify(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(StoryBeat.Major)]
+    [InlineData(StoryBeat.Climax)]
+    [InlineData(StoryBeat.Conclusion)]
+    public async Task CreateSceneAsync_QueuesArtworkForQualifyingLaterBeat(StoryBeat storyBeat)
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Illustrated turn");
+        session.Scenes.Add(CreatePreviousScene(session.Id, 1, "OPENING_STATE"));
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var queue = CreateQueue();
+        var service = new SceneService(dbContext, CreateApprovedModeration().Object, CreateTextService(storyBeat).Object, queue.Object);
+
+        var result = await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Face the threat"), CancellationToken.None);
+
+        Assert.Equal(storyBeat, result.StoryBeat);
+        Assert.Equal(ArtworkStatus.Queued, result.ArtworkStatus);
+        Assert.Single(dbContext.GenerationJobs);
+        queue.Verify(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetSceneAsync_MapsFailedArtworkStatus()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Failed artwork");
+        var scene = CreatePreviousScene(session.Id, 1, "FAILED_ARTWORK");
+        session.Scenes.Add(scene);
+        dbContext.Add(session);
+        dbContext.GenerationJobs.Add(new GenerationJob
+        {
+            Id = Guid.NewGuid(),
+            SceneId = scene.Id,
+            SessionId = session.Id,
+            Prompt = "Image prompt",
+            Status = JobStatus.Failed,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new SceneService(dbContext, new Mock<IModerationService>().Object, new Mock<IOpenAiTextService>().Object, CreateQueue().Object);
+        var result = await service.GetSceneAsync(session.UserId, session.Id, scene.Id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(ArtworkStatus.Failed, result.ArtworkStatus);
     }
 
     [Fact]
@@ -185,7 +261,15 @@ public class SceneServiceTests
         return queue;
     }
 
-    private static GeneratedStoryTurn CreateGeneratedTurn()
+    private static Mock<IOpenAiTextService> CreateTextService(StoryBeat storyBeat)
+    {
+        var text = new Mock<IOpenAiTextService>();
+        text.Setup(service => service.GenerateTurnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateGeneratedTurn(storyBeat));
+        return text;
+    }
+
+    private static GeneratedStoryTurn CreateGeneratedTurn(StoryBeat storyBeat = StoryBeat.Standard)
         => new(
             CreateNarrative(),
             "Ari protects the city.",
@@ -193,7 +277,7 @@ public class SceneServiceTests
             "Stop the attack",
             "{\"facts\":[\"The city is under attack\"]}",
             ["Protect civilians", "Confront the attacker"],
-            StoryBeat.Standard,
+            storyBeat,
             false);
 
     private static string CreateNarrative(int wordCount = 250)

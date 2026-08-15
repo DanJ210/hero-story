@@ -4,7 +4,10 @@
     <p>{{ sceneStore.currentScene.narrativeText }}</p>
     <p v-if="sceneStore.currentScene.moderationDetail">Moderation: {{ sceneStore.currentScene.moderationDetail }}</p>
     <img v-if="sceneStore.currentScene.imageUrl" :src="sceneStore.currentScene.imageUrl" alt="Generated artwork" />
-    <p v-else>Artwork is being generated...</p>
+    <p v-else-if="isArtworkPending(sceneStore.currentScene.artworkStatus)">Artwork is being generated...</p>
+    <p v-else-if="sceneStore.currentScene.artworkStatus === 'failed'">Artwork generation failed.</p>
+    <p v-else-if="sceneStore.currentScene.artworkStatus === 'poisoned'">Artwork could not be generated after several attempts.</p>
+    <p v-else-if="sceneStore.currentScene.artworkStatus === 'completed'">Artwork is temporarily unavailable.</p>
   </section>
 </template>
 
@@ -12,6 +15,7 @@
 import { onBeforeUnmount, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useSceneStore } from "../stores/sceneStore";
+import { isArtworkPending } from "../utils/artworkStatus";
 const route = useRoute();
 const sceneStore = useSceneStore();
 const sessionId = route.params.sessionId as string;
@@ -20,11 +24,11 @@ const pollIntervalMs = Number(import.meta.env.VITE_IMAGE_POLL_INTERVAL_MS ?? 300
 let timer: number | undefined;
 const pollScene = async () => {
   const scene = await sceneStore.loadScene(sessionId, sceneId);
-  if (scene?.imageUrl && timer) { window.clearInterval(timer); timer = undefined; }
+  if (scene && !isArtworkPending(scene.artworkStatus) && timer !== undefined) { window.clearInterval(timer); timer = undefined; }
 };
 onMounted(async () => {
   await pollScene();
-  if (!sceneStore.currentScene?.imageUrl) { timer = window.setInterval(() => { void pollScene(); }, pollIntervalMs); }
+  if (sceneStore.currentScene && isArtworkPending(sceneStore.currentScene.artworkStatus)) { timer = window.setInterval(() => { void pollScene(); }, pollIntervalMs); }
 });
-onBeforeUnmount(() => { if (timer) window.clearInterval(timer); });
+onBeforeUnmount(() => { if (timer !== undefined) window.clearInterval(timer); });
 </script>

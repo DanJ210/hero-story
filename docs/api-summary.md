@@ -49,6 +49,8 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 - `GET /api/sessions/{id}/scenes/{sceneId}`
   - Retrieves scene detail.
 
+Scene detail and list responses include an `artworkStatus` value: `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned`. Opening, major, climax, and conclusion beats request artwork; standard beats do not.
+
 ### Remaining interactive-turn contract (planned)
 
 The existing scene routes remain the compatibility surface while `Scene` evolves into an interactive story turn. These behaviors and routes are not yet implemented:
@@ -70,7 +72,7 @@ All continuation and revision operations require authentication, session ownersh
 
 - `GET /api/jobs/{jobId}`
   - Retrieves a single generation job (status, attempts, error detail).
-  - Returns `404` if not found.
+  - Returns `404` if not found or not owned by the authenticated user.
 ## Cross-cutting behavior
 
 - JWT bearer auth is required except on allow-anonymous auth endpoints.

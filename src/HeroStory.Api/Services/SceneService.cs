@@ -28,16 +28,22 @@ public class SceneService : ISceneService
     }
 
     public async Task<IReadOnlyList<SceneListDto>> GetScenesAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
-        => await _dbContext.Scenes
+    {
+        var scenes = await _dbContext.Scenes
+            .AsNoTracking()
+            .Include(scene => scene.GenerationJob)
             .Where(x => x.SessionId == sessionId && x.Session.UserId == userId)
             .OrderBy(x => x.SequenceNumber)
-            .Select(x => new SceneListDto(x.Id, x.SequenceNumber, x.ChoiceText, x.ImageUrl, x.ModerationStatus, x.UpdatedAt))
             .ToListAsync(cancellationToken);
+
+        return scenes.Select(ToListDto).ToArray();
+    }
 
     public async Task<SceneDto?> GetSceneAsync(Guid userId, Guid sessionId, Guid sceneId, CancellationToken cancellationToken)
     {
         var scene = await _dbContext.Scenes
             .AsNoTracking()
+            .Include(x => x.GenerationJob)
             .Where(x => x.Id == sceneId && x.SessionId == sessionId && x.Session.UserId == userId)
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -68,6 +74,7 @@ public class SceneService : ISceneService
         var outputModeration = await _moderationService.ModerateOutputAsync(generatedTurn.NarrativeText, cancellationToken);
 
         var sequenceNumber = (latestScene?.SequenceNumber ?? 0) + 1;
+        var storyBeat = latestScene is null ? StoryBeat.Opening : generatedTurn.StoryBeat;
         var scene = new Scene
         {
             Id = Guid.NewGuid(),
@@ -81,31 +88,43 @@ public class SceneService : ISceneService
             StoryStateSchemaVersion = 1,
             StoryStateJson = generatedTurn.StoryStateJson,
             SuggestedActionsJson = JsonSerializer.Serialize(generatedTurn.SuggestedActions),
-            StoryBeat = generatedTurn.StoryBeat,
+            StoryBeat = storyBeat,
             IsEpisodeComplete = generatedTurn.IsEpisodeComplete,
             ModerationStatus = outputModeration.Status,
             ModerationDetail = outputModeration.Detail,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
-        var job = new GenerationJob
+        GenerationJob? job = null;
+        if (RequestsArtwork(storyBeat))
         {
-            Id = Guid.NewGuid(),
-            SceneId = scene.Id,
-            SessionId = sessionId,
-            Prompt = prompt,
-            Status = JobStatus.Queued,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
+            job = new GenerationJob
+            {
+                Id = Guid.NewGuid(),
+                SceneId = scene.Id,
+                SessionId = sessionId,
+                Prompt = prompt,
+                Status = JobStatus.Queued,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Scene = scene
+            };
+            scene.GenerationJob = job;
+        }
 
         _dbContext.Scenes.Add(scene);
-        _dbContext.GenerationJobs.Add(job);
+        if (job is not null)
+        {
+            _dbContext.GenerationJobs.Add(job);
+        }
         session.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var message = JsonSerializer.Serialize(new { jobId = job.Id, sceneId = scene.Id, sessionId });
-        await _queueClient.EnqueueAsync(message, cancellationToken);
+        if (job is not null)
+        {
+            var message = JsonSerializer.Serialize(new { jobId = job.Id, sceneId = scene.Id, sessionId });
+            await _queueClient.EnqueueAsync(message, cancellationToken);
+        }
 
         return ToDto(scene);
     }
@@ -170,12 +189,38 @@ public class SceneService : ISceneService
             DeserializeSuggestedActions(scene.SuggestedActionsJson),
             scene.StoryBeat,
             scene.IsEpisodeComplete,
+            GetArtworkStatus(scene.GenerationJob?.Status),
             scene.ImageUrl,
             scene.ImageUrlExpiresAt,
             scene.ModerationStatus,
             scene.ModerationDetail,
             scene.CreatedAt,
             scene.UpdatedAt);
+
+    private static SceneListDto ToListDto(Scene scene)
+        => new(
+            scene.Id,
+            scene.SequenceNumber,
+            scene.ChoiceText,
+            GetArtworkStatus(scene.GenerationJob?.Status),
+            scene.ImageUrl,
+            scene.ModerationStatus,
+            scene.UpdatedAt);
+
+    private static bool RequestsArtwork(StoryBeat storyBeat)
+        => storyBeat is StoryBeat.Opening or StoryBeat.Major or StoryBeat.Climax or StoryBeat.Conclusion;
+
+    private static ArtworkStatus GetArtworkStatus(JobStatus? jobStatus)
+        => jobStatus switch
+        {
+            null => ArtworkStatus.NotRequested,
+            JobStatus.Queued => ArtworkStatus.Queued,
+            JobStatus.Processing => ArtworkStatus.Processing,
+            JobStatus.Completed => ArtworkStatus.Completed,
+            JobStatus.Failed => ArtworkStatus.Failed,
+            JobStatus.Poisoned => ArtworkStatus.Poisoned,
+            _ => throw new ArgumentOutOfRangeException(nameof(jobStatus), jobStatus, "Unsupported artwork job status.")
+        };
 
     private static IReadOnlyList<string> DeserializeSuggestedActions(string value)
         => string.IsNullOrWhiteSpace(value) ? [] : JsonSerializer.Deserialize<string[]>(value) ?? [];

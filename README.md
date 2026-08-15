@@ -80,7 +80,7 @@ Additional setup and troubleshooting notes are in [docs/development-guide.md](do
 2. User submits what their hero says, attempts, or chooses through `POST /api/sessions/{id}/scenes`.
 3. API moderates the contribution, advances the narrative, and returns the next story turn.
 4. API validates and stores structured narrative output, including summary, location, active conflict, schema-versioned state, 2–3 optional suggested actions, story beat, and episode-completion status.
-5. The next request receives the latest accepted summary, location, conflict, schema-versioned state, and narrative passage as bounded continuity context. Multi-turn summary compaction, latest-turn revision, session episode transitions, and selective artwork remain planned. The current implementation still creates an image job for every scene.
+5. The next request receives the latest accepted summary, location, conflict, schema-versioned state, and narrative passage as bounded continuity context. Artwork is queued only for opening, major, climax, and conclusion beats; standard turns report `notRequested` and are not polled. Multi-turn summary compaction, latest-turn revision, session episode transitions, and explicit artwork requests/retries remain planned.
 
 ### Worker image pipeline
 

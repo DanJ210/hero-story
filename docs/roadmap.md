@@ -17,7 +17,7 @@ This roadmap reflects expected progression from current MVP scaffold to producti
    - measure and cap the complete prompt budget,
    - add continuity regression evaluations for facts, relationships, and unresolved threads.
 4. Expand the scene API for active-path reads and latest-turn revision while preserving ownership, moderation, and normalized error contracts.
-5. Apply selective artwork policy so only opening, major, climax, conclusion, or explicitly requested beats enqueue image jobs.
+5. Extend the implemented selective artwork policy with explicit user requests, retry commands, and idempotent dispatch.
 6. Replace the scene-card workflow with the reader-first conversational experience:
    - continuous book-like passages,
    - free-text “What does your hero do?” input,
@@ -25,7 +25,7 @@ This roadmap reflects expected progression from current MVP scaffold to producti
    - latest-turn revision,
    - pause, resume, and explicit episode conclusion,
    - loading, error, retry, and superseded-artwork states.
-7. Add vertical-slice tests proving continuity, meaningful consequences, revision behavior, active-path ownership, episode completion, and selective image dispatch.
+7. Add vertical-slice tests proving continuity, meaningful consequences, revision behavior, active-path ownership, episode completion, and explicit artwork retry.
 
 ## Mid-term (production readiness)
 

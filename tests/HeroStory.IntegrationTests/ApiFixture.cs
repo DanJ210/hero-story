@@ -9,6 +9,8 @@ namespace HeroStory.IntegrationTests;
 
 public class ApiFixture : WebApplicationFactory<Program>
 {
+    private readonly string _databaseName = Guid.NewGuid().ToString();
+
     protected virtual string EnvironmentName => "Testing";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -27,7 +29,7 @@ public class ApiFixture : WebApplicationFactory<Program>
             {
                 services.Remove(descriptor);
             }
-            services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+            services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(_databaseName));
         });
     }
 }

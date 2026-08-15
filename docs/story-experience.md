@@ -160,7 +160,9 @@ The current implementation validates a structured JSON model response and persis
 
 The parser enforces the 250–500 word target, field lengths, 2–3 distinct suggestions, object-shaped state, and a 16 KB serialized state limit. Persisted context must use supported schema version 1.
 
-It does not yet build summaries across multiple older turns, retry malformed provider responses, implement revision lineage or active-path reads, update session episode status, or apply selective image dispatch. It still creates one image job for every scene.
+Artwork is now requested only for opening, major, climax, and conclusion beats. Standard turns create no image job. Scene responses expose `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned` artwork status so clients poll only active work.
+
+It does not yet build summaries across multiple older turns, retry malformed provider responses, implement revision lineage or active-path reads, update session episode status, or support explicit user-requested artwork and image retry.
 
 These gaps are implementation work, not completed behavior. Delivery sequencing is tracked in [roadmap.md](roadmap.md).
 

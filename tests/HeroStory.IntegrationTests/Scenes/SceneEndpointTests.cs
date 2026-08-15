@@ -24,6 +24,7 @@ public class SceneEndpointTests
             ["One", "Two"],
             HeroStory.Core.Enums.StoryBeat.Major,
             false,
+            HeroStory.Core.Enums.ArtworkStatus.NotRequested,
             null,
             null,
             HeroStory.Core.Enums.ModerationStatus.Approved,
