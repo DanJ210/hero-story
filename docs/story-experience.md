@@ -110,7 +110,7 @@ Multi-episode campaigns and multiple simultaneously active branches are post-MVP
 
 ## Deferred product decisions
 
-Before production launch, define explicit policy for age bands, content ratings, romance, irreversible character death, and whether users can publish or share stories. These decisions affect moderation, prompting, data retention, and UX and must not be left solely to model behavior.
+Before production launch, define explicit policy for age bands, content ratings, romance, irreversible character death, whether users can publish or share stories, and whether hero-likeness personalization is available to minors. These decisions affect moderation, prompting, consent, data retention, and UX and must not be left solely to model behavior.
 
 ## Artwork policy
 
@@ -123,6 +123,26 @@ Artwork is selective to control latency, cost, and visual repetition. Generate i
 - an explicit user request when supported.
 
 The structured `storyBeat` value drives this decision. Image generation remains asynchronous and must not block the narrative response.
+
+## Deferred hero-likeness personalization
+
+After the conversational story flow and selective-artwork pipeline are functioning, a user may optionally provide a portrait so generated artwork can depict the hero with their likeness. This is an opt-in personalization feature, not an MVP dependency and never a requirement for using the story experience.
+
+The feature must follow these boundaries:
+
+- Obtain explicit consent before upload and before the portrait is used for generation.
+- Confirm the uploader has the right to use the image and is providing their own likeness or otherwise authorized material.
+- Do not infer identity, age, ethnicity, health, emotion, or other sensitive traits from the portrait.
+- Keep source portraits private, encrypted, ownership-scoped, and separate from public/generated story assets.
+- Never place source portraits or unrestricted source URLs in queues, logs, prompts, analytics, or generated-art metadata.
+- Use short-lived authorized references when an approved image provider requires source access.
+- Define deletion, replacement, export, retention, backup-expiry, and provider-retention behavior before launch.
+- Deleting the portrait or account must prevent future use and schedule deletion of retained source copies according to policy.
+- Generated images must retain provenance linking them to the consenting user, source-portrait version, provider, policy version, and story turn without exposing the source image.
+- Re-check consent when provider terms, model behavior, sharing scope, or use purpose changes.
+- Apply provider safety rules and block impersonation, public-figure misuse, non-consensual likeness use, and disallowed transformations.
+
+The user should be able to preview, replace, disable, and remove their likeness independently of deleting the story. Existing generated artwork needs an explicit product policy: either retain it as story output after source deletion or remove it as part of likeness deletion. That choice must be presented before consent.
 
 ## UX direction
 

@@ -22,6 +22,7 @@ The interactive experience has been refined without changing the baseline archit
 - Users can revise the latest active turn; revisions preserve prior versions and move the active story path to the replacement.
 - Artwork is asynchronous and selective, reserved for opening scenes and major story beats.
 - Episodes have explicit completion state and can be paused or resumed.
+- Optional use of the user's own likeness in hero artwork is a post-chat-flow capability and must be consent-driven, privacy-isolated, and removable.
 
 The detailed product, turn, revision, and acceptance contracts are maintained in [story-experience.md](story-experience.md). Where the original baseline is broad, that document controls the current product interpretation. Current code must not be described as implementing target behavior until the corresponding roadmap work is complete.
 

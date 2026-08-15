@@ -36,6 +36,19 @@ Persistence is centered on `AppDbContext` in `src/HeroStory.Infrastructure/Data/
 
 - Captures account/session deletion audit metadata.
 
+## Future `HeroPortrait` and consent records
+
+Hero-likeness personalization is deferred until after the chat and selective-artwork flow. Do not add portrait bytes or source URLs to `StorySession` or `Scene`.
+
+The future model should separate:
+
+- a private, user-owned portrait record with blob reference, version, status, timestamps, and retention/deletion state,
+- an immutable consent record covering purpose, policy version, provider scope, and user acknowledgement,
+- generated-asset provenance referencing the portrait version without exposing its blob location,
+- an audit trail for upload, use, replacement, disablement, export, and deletion.
+
+Portrait deletion and account deletion must account for source blobs, derivative references, queued work, provider retention, and backup expiry.
+
 ## Supporting enums
 
 - `SessionStatus`

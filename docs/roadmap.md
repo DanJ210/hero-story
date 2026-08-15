@@ -53,6 +53,9 @@ This roadmap reflects expected progression from current MVP scaffold to producti
    - collaborative sessions.
 2. Support multi-strategy image generation policy by tier, cost, or quality.
 3. Add personalization features and recommendation signals.
+   - Add opt-in hero-likeness portraits only after the reader/chat and selective-artwork flows are stable.
+   - Implement consent records, ownership-scoped private portrait storage, portrait versioning, short-lived provider access, provenance, deletion/export, retention, and provider-policy enforcement.
+   - Keep likeness analysis out of scope; use portraits only as an authorized generation reference.
 4. Expand platform integrations for analytics and content safety governance.
 
 ## Baseline reference

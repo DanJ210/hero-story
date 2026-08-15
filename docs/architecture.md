@@ -40,6 +40,12 @@ Continuity is an application-owned contract, not an unbounded chat transcript. T
 
 Generation requests should use the minimum relevant context. Structured model responses must be schema-validated; do not parse narrative prose to recover state.
 
+## Future likeness boundary
+
+Optional hero-likeness personalization is a separate privacy boundary from narrative state and generated artwork. Source portraits belong in private, ownership-scoped storage and must not be embedded in `StorySession`, `Scene`, queue payloads, logs, or public asset containers.
+
+An eventual likeness service should own consent, portrait versions, retention/deletion status, and generation-reference issuance. Image jobs should carry an opaque portrait-version identifier; workers resolve it to short-lived authorized provider access only when policy permits. Generated assets record provenance without exposing the source portrait.
+
 ## Security and control surfaces
 
 - JWT bearer authentication with refresh-token workflow.
@@ -48,6 +54,7 @@ Generation requests should use the minimum relevant context. Structured model re
 - Middleware for correlation ID and exception handling.
 - Content moderation service invoked before creating unsafe content.
 - Revision and continuation endpoints enforce the same user ownership checks as reads and creation.
+- Future likeness upload, use, replacement, and deletion require explicit consent and ownership checks independent of story ownership.
 
 ## Deployment shape (target)
 
