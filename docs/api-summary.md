@@ -56,7 +56,7 @@ The existing scene routes remain the compatibility surface while `Scene` evolves
 - `GET /api/sessions/{id}/scenes`
   - Returns the active story path in sequence order by default, excluding superseded revisions.
 - `POST /api/sessions/{id}/scenes`
-  - Add an optional request to conclude the episode, continuity-aware prompt context, and optimistic conflict handling.
+  - Add an optional request to conclude the episode and optimistic conflict handling. The latest accepted turn is already supplied as continuity context.
 - `POST /api/sessions/{id}/scenes/{sceneId}/revisions`
   - Revises the latest active turn using a replacement user contribution.
   - Preserves the prior version as superseded and returns the replacement turn.

@@ -15,7 +15,7 @@ The application demonstrates an end-to-end architecture for:
 - selective asynchronous artwork for major story beats,
 - cloud-aligned storage patterns (SQL, queue, blob).
 
-The product and acceptance contract is defined in [story-experience.md](story-experience.md). The current implementation persists validated structured turn output, including suggestions and episode-completion metadata. Continuity-aware prompting, revision lineage, active-path reads, session episode transitions, and selective artwork remain roadmap work.
+The product and acceptance contract is defined in [story-experience.md](story-experience.md). The current implementation persists validated structured turn output and feeds the latest accepted turn back into the next bounded prompt. Revision lineage, active-path reads, session episode transitions, selective artwork, and multi-turn summary compaction remain roadmap work.
 
 ## Current scaffold status
 

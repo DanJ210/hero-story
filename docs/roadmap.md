@@ -5,19 +5,17 @@ This roadmap reflects expected progression from current MVP scaffold to producti
 ## Near-term (MVP completion)
 
 1. Harden the implemented structured turn foundation:
-   - validate the 250–500 word narrative target with safe retry/failure behavior,
-   - validate story-state size and field-level constraints,
    - add malformed-provider-response retry policy and observability,
+   - add configurable retry/failure behavior for narrative or state validation failures,
    - update session status when an episode completes.
 2. Add persistent turn lineage and an EF migration:
    - active/superseded status,
    - parent and revised-from relationships,
    - active-path uniqueness and concurrency protection.
-3. Build continuity-aware prompting:
-   - stable hero configuration,
-   - relevant summaries and current state,
-   - explicit acknowledgement and consequence for user actions,
-   - bounded context rather than full-transcript replay.
+3. Expand the implemented latest-turn continuity prompting:
+   - compact relevant summaries across older turns,
+   - measure and cap the complete prompt budget,
+   - add continuity regression evaluations for facts, relationships, and unresolved threads.
 4. Expand the scene API for active-path reads and latest-turn revision while preserving ownership, moderation, and normalized error contracts.
 5. Apply selective artwork policy so only opening, major, climax, conclusion, or explicitly requested beats enqueue image jobs.
 6. Replace the scene-card workflow with the reader-first conversational experience:

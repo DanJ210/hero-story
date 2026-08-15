@@ -136,9 +136,11 @@ The structured `storyBeat` value drives this decision. Image generation remains 
 
 ## Current implementation gap
 
-The current implementation validates a structured JSON model response and persists narrative, summary, location, active conflict, schema-versioned story state, 2–3 suggested actions, story-beat classification, and episode-completion status per `Scene`.
+The current implementation validates a structured JSON model response and persists narrative, summary, location, active conflict, schema-versioned story state, 2–3 suggested actions, story-beat classification, and episode-completion status per `Scene`. Each subsequent turn receives the latest accepted scene summary, location, conflict, state, and narrative passage as bounded continuity context.
 
-It does not yet feed prior turn summaries or state into the next generation request, enforce the 250–500 word target after generation, implement revision lineage or active-path reads, update session episode status, or apply selective image dispatch. It still creates one image job for every scene.
+The parser enforces the 250–500 word target, field lengths, 2–3 distinct suggestions, object-shaped state, and a 16 KB serialized state limit. Persisted context must use supported schema version 1.
+
+It does not yet build summaries across multiple older turns, retry malformed provider responses, implement revision lineage or active-path reads, update session episode status, or apply selective image dispatch. It still creates one image job for every scene.
 
 These gaps are implementation work, not completed behavior. Delivery sequencing is tracked in [roadmap.md](roadmap.md).
 
