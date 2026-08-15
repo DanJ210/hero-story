@@ -28,7 +28,7 @@ public class OpenAiClient
     public async Task<string> CreateChatCompletionAsync(string prompt, CancellationToken cancellationToken)
     {
         var model = _configuration["OPENAI_TEXT_MODEL"] ?? "gpt-4o";
-        var maxTokens = int.TryParse(_configuration["OPENAI_TEXT_MAX_TOKENS"], out var parsedMaxTokens) ? parsedMaxTokens : 800;
+        var maxTokens = int.TryParse(_configuration["OPENAI_TEXT_MAX_TOKENS"], out var parsedMaxTokens) ? parsedMaxTokens : 1400;
         var temperature = decimal.TryParse(_configuration["OPENAI_TEXT_TEMPERATURE"], out var parsedTemperature) ? parsedTemperature : 0.85m;
 
         var response = await _httpClient.PostAsJsonAsync("/v1/chat/completions", new
@@ -36,6 +36,7 @@ public class OpenAiClient
             model,
             max_tokens = maxTokens,
             temperature,
+            response_format = new { type = "json_object" },
             messages = new[]
             {
                 new { role = "system", content = "You are a collaborative fantasy storyteller." },

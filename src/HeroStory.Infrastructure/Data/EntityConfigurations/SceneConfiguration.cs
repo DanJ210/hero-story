@@ -11,6 +11,12 @@ public class SceneConfiguration : IEntityTypeConfiguration<Scene>
         builder.HasKey(x => x.Id);
         builder.Property(x => x.ChoiceText).HasMaxLength(1000).IsRequired();
         builder.Property(x => x.NarrativeText).HasMaxLength(4000).IsRequired();
+        builder.Property(x => x.SceneSummary).HasMaxLength(2000).IsRequired();
+        builder.Property(x => x.Location).HasMaxLength(300).IsRequired();
+        builder.Property(x => x.ActiveConflict).HasMaxLength(1000).IsRequired();
+        builder.Property(x => x.StoryStateSchemaVersion).HasDefaultValue(1).IsRequired();
+        builder.Property(x => x.StoryStateJson).HasColumnType("nvarchar(max)").HasDefaultValue("{}").IsRequired();
+        builder.Property(x => x.SuggestedActionsJson).HasMaxLength(2000).HasDefaultValue("[]").IsRequired();
         builder.Property(x => x.CreatedAt).IsRequired();
         builder.Property(x => x.UpdatedAt).IsRequired();
         builder.HasOne(x => x.GenerationJob).WithOne(x => x.Scene).HasForeignKey<GenerationJob>(x => x.SceneId);

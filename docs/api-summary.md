@@ -17,6 +17,9 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 - `POST /api/auth/logout`
   - Revokes refresh token context.
   - Returns `204 No Content`.
+- `POST /api/auth/dev-login`
+  - Development-only shortcut that creates or reuses the configured development user and returns the normal token payload.
+  - Mapped only when the host environment is `Development` and `DEV_AUTH_ENABLED=true`.
 - `DELETE /api/auth/account`
   - Authenticated account deletion request.
   - Returns `202 Accepted`.
@@ -41,9 +44,27 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
   - Lists scenes for session.
 - `POST /api/sessions/{id}/scenes`
   - Creates a scene and triggers generation workflow.
+  - Returns structured narrative fields: summary, location, active conflict, schema-versioned state object, 2–3 suggested actions, story beat, and episode-completion status.
   - Returns `201 Created`.
 - `GET /api/sessions/{id}/scenes/{sceneId}`
   - Retrieves scene detail.
+
+### Remaining interactive-turn contract (planned)
+
+The existing scene routes remain the compatibility surface while `Scene` evolves into an interactive story turn. These behaviors and routes are not yet implemented:
+
+- `GET /api/sessions/{id}/scenes`
+  - Returns the active story path in sequence order by default, excluding superseded revisions.
+- `POST /api/sessions/{id}/scenes`
+  - Add an optional request to conclude the episode, continuity-aware prompt context, and optimistic conflict handling.
+- `POST /api/sessions/{id}/scenes/{sceneId}/revisions`
+  - Revises the latest active turn using a replacement user contribution.
+  - Preserves the prior version as superseded and returns the replacement turn.
+  - Rejects revisions of a turn that is not the latest active turn during the MVP.
+- `GET /api/sessions/{id}/scenes/{sceneId}/revisions`
+  - Returns revision history for an owned turn when revision-history UI is implemented.
+
+All continuation and revision operations require authentication, session ownership, input/output moderation, and optimistic conflict handling so concurrent submissions cannot create two active successors accidentally.
 
 ## Generation jobs (`/api/jobs`)
 
@@ -61,3 +82,4 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 
 - Runtime architecture: [architecture.md](architecture.md)
 - Entity model backing these endpoints: [data-model.md](data-model.md)
+- Product and turn contract: [story-experience.md](story-experience.md)

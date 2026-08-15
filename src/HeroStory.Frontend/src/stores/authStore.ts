@@ -10,6 +10,7 @@ export const useAuthStore = defineStore("auth", {
   actions: {
     async register(email: string, password: string, displayName: string) { await authApi.register({ email, password, displayName }); },
     async login(email: string, password: string) { this.loading = true; try { const response = await authApi.login({ email, password }); this.setTokens(response.accessToken, response.refreshToken); } finally { this.loading = false; } },
+    async developmentLogin() { this.loading = true; try { const response = await authApi.developmentLogin(); this.setTokens(response.accessToken, response.refreshToken); } finally { this.loading = false; } },
     async refresh() { if (!this.refreshToken) throw new Error("No refresh token available."); const response = await authApi.refresh(this.refreshToken); this.setTokens(response.accessToken, response.refreshToken); },
     async logout() { if (this.refreshToken) await authApi.logout(this.refreshToken); this.clearTokens(); },
     setTokens(accessToken: string, refreshToken: string) { this.accessToken = accessToken; this.refreshToken = refreshToken; localStorage.setItem(ACCESS_TOKEN_KEY, accessToken); localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken); },

@@ -4,10 +4,30 @@ This roadmap reflects expected progression from current MVP scaffold to producti
 
 ## Near-term (MVP completion)
 
-1. Finalize API contract consistency and error envelope standards.
-2. Expand scene and generation job endpoints with richer status polling/query.
-3. Add committed local infrastructure orchestration (`docker-compose.yml`) for one-command startup.
-4. Harden frontend UX for loading/error/retry states across auth/session/scene flows.
+1. Harden the implemented structured turn foundation:
+   - validate the 250–500 word narrative target with safe retry/failure behavior,
+   - validate story-state size and field-level constraints,
+   - add malformed-provider-response retry policy and observability,
+   - update session status when an episode completes.
+2. Add persistent turn lineage and an EF migration:
+   - active/superseded status,
+   - parent and revised-from relationships,
+   - active-path uniqueness and concurrency protection.
+3. Build continuity-aware prompting:
+   - stable hero configuration,
+   - relevant summaries and current state,
+   - explicit acknowledgement and consequence for user actions,
+   - bounded context rather than full-transcript replay.
+4. Expand the scene API for active-path reads and latest-turn revision while preserving ownership, moderation, and normalized error contracts.
+5. Apply selective artwork policy so only opening, major, climax, conclusion, or explicitly requested beats enqueue image jobs.
+6. Replace the scene-card workflow with the reader-first conversational experience:
+   - continuous book-like passages,
+   - free-text “What does your hero do?” input,
+   - optional suggested actions,
+   - latest-turn revision,
+   - pause, resume, and explicit episode conclusion,
+   - loading, error, retry, and superseded-artwork states.
+7. Add vertical-slice tests proving continuity, meaningful consequences, revision behavior, active-path ownership, episode completion, and selective image dispatch.
 
 ## Mid-term (production readiness)
 
@@ -24,13 +44,15 @@ This roadmap reflects expected progression from current MVP scaffold to producti
    - secret rotation and managed identity integration,
    - stricter CSP/CORS policy management,
    - audit and compliance reporting.
+5. Resolve product policy for age bands, content ratings, romance, irreversible outcomes, story sharing, and retention.
 
 ## Longer-term (product capabilities)
 
-1. Introduce richer story model:
-   - branching storylines,
-   - collaborative sessions,
-   - revision history.
+1. Expand the story model beyond MVP:
+   - revision of older turns,
+   - multiple active branches and branch comparison,
+   - multi-episode hero campaigns,
+   - collaborative sessions.
 2. Support multi-strategy image generation policy by tier, cost, or quality.
 3. Add personalization features and recommendation signals.
 4. Expand platform integrations for analytics and content safety governance.

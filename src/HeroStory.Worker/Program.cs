@@ -7,7 +7,9 @@ using Microsoft.EntityFrameworkCore;
 var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 var configuration = builder.Configuration;
-var connectionString = configuration["DB_CONNECTION_STRING"] ?? "Server=(localdb)\\MSSQLLocalDB;Database=HeroStoryDb;Trusted_Connection=True;TrustServerCertificate=True";
+var connectionString = configuration.GetConnectionString("Default")
+    ?? configuration["DB_CONNECTION_STRING"]
+    ?? throw new InvalidOperationException("ConnectionStrings:Default or DB_CONNECTION_STRING is required.");
 
 builder.Services.Configure<global::HeroStory.Worker.WorkerOptions>(options =>
 {

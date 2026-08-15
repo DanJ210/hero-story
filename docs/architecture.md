@@ -17,15 +17,28 @@ This document describes the intended target architecture and how the current sca
 ### Synchronous path (user-facing)
 
 - Frontend sends authenticated requests to API.
-- API validates identity, performs business logic, persists data, and returns DTOs.
-- For scene/image generation, API writes a `GenerationJob` and enqueues payload for async handling.
+- API validates identity and ownership, moderates the user's contribution, and loads the active story path and compact continuity state.
+- The story service sends hero configuration, relevant summaries, current state, and the new user action to the text-generation boundary.
+- Generated output is parsed and validated as structured data containing book-like narrative, a scene summary, state changes, 2–3 suggested actions, story-beat classification, and episode-completion status.
+- API moderates generated prose, persists the new immutable turn on the active path, and returns it without waiting for artwork.
+- Revision creates a replacement turn from the preceding accepted turn and marks the prior latest version as superseded; it does not overwrite historical content in place.
+
+The current implementation validates and persists the structured generation result alongside `ChoiceText` and `NarrativeText`. Continuity state is not yet loaded into subsequent prompts, and revision lineage, active-path semantics, episode transitions, and selective image dispatch remain planned work.
 
 ### Asynchronous path (worker-facing)
 
+- API enqueues image work only when the validated story beat qualifies for artwork under the selective image policy.
 - Worker polls queue in batches.
 - Each message resolves to a `GenerationJob`.
 - Worker updates status transitions (`Pending -> Processing -> Completed/Failed/Poisoned`).
 - Output assets are persisted to blob storage and referenced by domain records.
+- Jobs associated only with superseded turns must not replace artwork on the active story path.
+
+## Story-state boundary
+
+Continuity is an application-owned contract, not an unbounded chat transcript. The persisted state should contain compact facts needed to continue the story, including characters, relationships, location, active conflict, resources, unresolved threads, and summaries of prior turns.
+
+Generation requests should use the minimum relevant context. Structured model responses must be schema-validated; do not parse narrative prose to recover state.
 
 ## Security and control surfaces
 
@@ -34,6 +47,7 @@ This document describes the intended target architecture and how the current sca
 - CORS policy driven by `CORS_ALLOWED_ORIGINS`.
 - Middleware for correlation ID and exception handling.
 - Content moderation service invoked before creating unsafe content.
+- Revision and continuation endpoints enforce the same user ownership checks as reads and creation.
 
 ## Deployment shape (target)
 
@@ -46,3 +60,4 @@ The architecture is designed for cloud deployment where API and worker are indep
 - Data design: [data-model.md](data-model.md)
 - Setup and dev workflow: [development-guide.md](development-guide.md)
 - Baseline handoff spec: [handoff-plan.md](handoff-plan.md)
+- Product and turn contract: [story-experience.md](story-experience.md)

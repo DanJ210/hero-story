@@ -65,6 +65,33 @@ public class AuthService : IAuthService
         return await IssueTokensAsync(user, null, cancellationToken);
     }
 
+    public async Task<TokenResponse> DevelopmentLoginAsync(CancellationToken cancellationToken)
+    {
+        var email = _configuration["DEV_AUTH_EMAIL"] ?? "developer@hero-story.local";
+        var displayName = _configuration["DEV_AUTH_DISPLAY_NAME"] ?? "Development Hero";
+        var user = await _userManager.FindByEmailAsync(email);
+
+        if (user is null)
+        {
+            user = new ApplicationUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = email,
+                Email = email,
+                DisplayName = displayName,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await _userManager.CreateAsync(user);
+            if (!result.Succeeded)
+            {
+                throw new InvalidOperationException(string.Join("; ", result.Errors.Select(error => error.Description)));
+            }
+        }
+
+        return await IssueTokensAsync(user, null, cancellationToken);
+    }
+
     public async Task<TokenResponse> RefreshAsync(RefreshRequest request, CancellationToken cancellationToken)
     {
         var tokenHash = HashToken(request.RefreshToken);

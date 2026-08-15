@@ -6,6 +6,9 @@
       <input v-model="password" type="password" placeholder="Password" />
       <button type="submit">Login</button>
     </form>
+    <button v-if="developmentAuthEnabled" type="button" :disabled="authStore.loading" @click="handleDevelopmentLogin">
+      Continue as development user
+    </button>
     <p><RouterLink to="/register">Create an account</RouterLink></p>
   </section>
 </template>
@@ -16,7 +19,9 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
 const router = useRouter();
 const authStore = useAuthStore();
+const developmentAuthEnabled = import.meta.env.VITE_DEV_AUTH_ENABLED === "true";
 const email = ref("");
 const password = ref("");
 const handleLogin = async () => { await authStore.login(email.value, password.value); await router.push("/"); };
+const handleDevelopmentLogin = async () => { await authStore.developmentLogin(); await router.push("/"); };
 </script>

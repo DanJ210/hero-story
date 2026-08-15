@@ -10,6 +10,21 @@ This page summarizes the official handoff package that kicked off implementation
 
 The handoff package defines the authoritative MVP scope, target architecture, service boundaries, and delivery expectations for Hero Story. Current code should align to this baseline while allowing iterative implementation details.
 
+## Product-direction addendum
+
+The interactive experience has been refined without changing the baseline architecture:
+
+- The user is the superhero and primary protagonist.
+- The story advances one conversational turn at a time rather than generating a full novel.
+- Each turn produces approximately 250–500 words of book-like prose.
+- Users can provide free-text actions or select from 2–3 optional suggestions.
+- User decisions must create observable consequences and update explicit continuity state.
+- Users can revise the latest active turn; revisions preserve prior versions and move the active story path to the replacement.
+- Artwork is asynchronous and selective, reserved for opening scenes and major story beats.
+- Episodes have explicit completion state and can be paused or resumed.
+
+The detailed product, turn, revision, and acceptance contracts are maintained in [story-experience.md](story-experience.md). Where the original baseline is broad, that document controls the current product interpretation. Current code must not be described as implementing target behavior until the corresponding roadmap work is complete.
+
 ## Section-by-section summary
 
 ## 1. Product vision and goals

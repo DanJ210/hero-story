@@ -35,10 +35,14 @@ public class SceneService : ISceneService
             .ToListAsync(cancellationToken);
 
     public async Task<SceneDto?> GetSceneAsync(Guid userId, Guid sessionId, Guid sceneId, CancellationToken cancellationToken)
-        => await _dbContext.Scenes
+    {
+        var scene = await _dbContext.Scenes
+            .AsNoTracking()
             .Where(x => x.Id == sceneId && x.SessionId == sessionId && x.Session.UserId == userId)
-            .Select(x => new SceneDto(x.Id, x.SessionId, x.SequenceNumber, x.ChoiceText, x.NarrativeText, x.ImageUrl, x.ImageUrlExpiresAt, x.ModerationStatus, x.ModerationDetail, x.CreatedAt, x.UpdatedAt))
             .SingleOrDefaultAsync(cancellationToken);
+
+        return scene is null ? null : ToDto(scene);
+    }
 
     public async Task<SceneDto> CreateSceneAsync(Guid userId, Guid sessionId, CreateSceneRequest request, CancellationToken cancellationToken)
     {
@@ -55,13 +59,13 @@ public class SceneService : ISceneService
         }
 
         var prompt = BuildPrompt(session, request.ChoiceText);
-        var narrative = await _openAiTextService.GenerateNarrativeAsync(prompt, cancellationToken);
-        var outputModeration = await _moderationService.ModerateOutputAsync(narrative, cancellationToken);
+        var generatedTurn = await _openAiTextService.GenerateTurnAsync(prompt, cancellationToken);
+        var outputModeration = await _moderationService.ModerateOutputAsync(generatedTurn.NarrativeText, cancellationToken);
 
-var sequenceNumber = (await _dbContext.Scenes
-    .Where(x => x.SessionId == sessionId)
-    .Select(x => (int?)x.SequenceNumber)
-    .MaxAsync(cancellationToken) ?? 0) + 1;
+        var sequenceNumber = (await _dbContext.Scenes
+            .Where(x => x.SessionId == sessionId)
+            .Select(x => (int?)x.SequenceNumber)
+            .MaxAsync(cancellationToken) ?? 0) + 1;
         var scene = new Scene
         {
             Id = Guid.NewGuid(),
@@ -69,6 +73,14 @@ var sequenceNumber = (await _dbContext.Scenes
             SequenceNumber = sequenceNumber,
             ChoiceText = request.ChoiceText,
             NarrativeText = outputModeration.Narrative,
+            SceneSummary = generatedTurn.SceneSummary,
+            Location = generatedTurn.Location,
+            ActiveConflict = generatedTurn.ActiveConflict,
+            StoryStateSchemaVersion = 1,
+            StoryStateJson = generatedTurn.StoryStateJson,
+            SuggestedActionsJson = JsonSerializer.Serialize(generatedTurn.SuggestedActions),
+            StoryBeat = generatedTurn.StoryBeat,
+            IsEpisodeComplete = generatedTurn.IsEpisodeComplete,
             ModerationStatus = outputModeration.Status,
             ModerationDetail = outputModeration.Detail,
             CreatedAt = DateTime.UtcNow,
@@ -93,9 +105,63 @@ var sequenceNumber = (await _dbContext.Scenes
         var message = JsonSerializer.Serialize(new { jobId = job.Id, sceneId = scene.Id, sessionId });
         await _queueClient.EnqueueAsync(message, cancellationToken);
 
-        return new SceneDto(scene.Id, scene.SessionId, scene.SequenceNumber, scene.ChoiceText, scene.NarrativeText, scene.ImageUrl, scene.ImageUrlExpiresAt, scene.ModerationStatus, scene.ModerationDetail, scene.CreatedAt, scene.UpdatedAt);
+                return ToDto(scene);
     }
 
     private static string BuildPrompt(StorySession session, string choiceText)
-        => $"You are continuing an interactive hero story. Title: {session.Title}. Genre: {session.Genre}. Hero archetype: {session.HeroArchetype}. Hero name: {session.HeroName}. Player choice: {choiceText}. Write the next scene in under 800 tokens.";
+                => $$"""
+                        Continue an interactive superhero story in which the user is the protagonist.
+                        Title: {{session.Title}}
+                        Genre: {{session.Genre}}
+                        Hero archetype: {{session.HeroArchetype}}
+                        Hero name: {{session.HeroName}}
+                        User action: {{choiceText}}
+
+                        Acknowledge the user's action directly and give it an observable consequence. Write 250-500 words of book-like prose.
+                        Return only a JSON object with this schema:
+                        {
+                            "narrative": "string",
+                            "sceneSummary": "string",
+                            "location": "string",
+                            "activeConflict": "string",
+                            "storyState": {
+                                "characters": [],
+                                "relationships": [],
+                                "facts": [],
+                                "resources": [],
+                                "unresolvedThreads": []
+                            },
+                            "suggestedActions": ["2 or 3 distinct optional actions"],
+                            "storyBeat": "standard|opening|major|climax|conclusion",
+                            "isEpisodeComplete": false
+                        }
+                        """;
+
+        private static SceneDto ToDto(Scene scene)
+                => new(
+                        scene.Id,
+                        scene.SessionId,
+                        scene.SequenceNumber,
+                        scene.ChoiceText,
+                        scene.NarrativeText,
+                        scene.SceneSummary,
+                        scene.Location,
+                        scene.ActiveConflict,
+                        scene.StoryStateSchemaVersion,
+                        DeserializeStoryState(scene.StoryStateJson),
+                        DeserializeSuggestedActions(scene.SuggestedActionsJson),
+                        scene.StoryBeat,
+                        scene.IsEpisodeComplete,
+                        scene.ImageUrl,
+                        scene.ImageUrlExpiresAt,
+                        scene.ModerationStatus,
+                        scene.ModerationDetail,
+                        scene.CreatedAt,
+                        scene.UpdatedAt);
+
+        private static IReadOnlyList<string> DeserializeSuggestedActions(string value)
+            => string.IsNullOrWhiteSpace(value) ? [] : JsonSerializer.Deserialize<string[]>(value) ?? [];
+
+        private static JsonElement DeserializeStoryState(string value)
+            => JsonSerializer.Deserialize<JsonElement>(string.IsNullOrWhiteSpace(value) ? "{}" : value);
 }

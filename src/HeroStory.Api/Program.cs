@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using HeroStory.Api.Middleware;
 using HeroStory.Api.Services;
 using HeroStory.Core.Entities;
@@ -26,7 +28,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("Default")
-        ?? builder.Configuration["SQLSERVER_CONNECTION_STRING"];
+        ?? builder.Configuration["SQLSERVER_CONNECTION_STRING"]
+        ?? builder.Configuration["DB_CONNECTION_STRING"];
 
     if (!string.IsNullOrWhiteSpace(connectionString))
     {
@@ -84,7 +87,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
-    options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 });
 builder.Services.AddCors(options =>
     options.AddPolicy("default", policy =>
@@ -134,9 +138,18 @@ builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 
 var app = builder.Build();
 
+if (builder.Configuration.GetValue("DB_APPLY_MIGRATIONS", false))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (dbContext.Database.IsRelational())
+    {
+        await dbContext.Database.MigrateAsync();
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger(c => c.SerializeAsV2 = true);
     app.UseSwaggerUI();
 }
 
@@ -159,6 +172,13 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+if (app.Environment.IsDevelopment() && builder.Configuration.GetValue("DEV_AUTH_ENABLED", false))
+{
+    app.MapPost("/api/auth/dev-login", async (IAuthService authService, CancellationToken cancellationToken) =>
+        Results.Ok(await authService.DevelopmentLoginAsync(cancellationToken)))
+        .AllowAnonymous();
+}
 
 app.Run();
 

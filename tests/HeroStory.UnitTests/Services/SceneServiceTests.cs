@@ -35,7 +35,15 @@ public class SceneServiceTests
         moderation.Setup(x => x.ModerateInputAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((ModerationStatus.Approved, null as string));
         moderation.Setup(x => x.ModerateOutputAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((ModerationStatus.Approved, null as string, "Narrative"));
         var text = new Mock<IOpenAiTextService>();
-        text.Setup(x => x.GenerateNarrativeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync("Narrative");
+        text.Setup(x => x.GenerateTurnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new GeneratedStoryTurn(
+            "Narrative",
+            "Ari enters the northern pass.",
+            "Northern pass",
+            "Find a safe route through the storm",
+            "{\"facts\":[\"The northern pass is blocked\"]}",
+            ["Climb the ridge", "Search for shelter"],
+            StoryBeat.Major,
+            false));
         var queue = new Mock<AzureQueueClient>(new ConfigurationBuilder().AddInMemoryCollection().Build());
         queue.Setup(x => x.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
@@ -44,5 +52,15 @@ public class SceneServiceTests
 
         Assert.Equal(1, result.SequenceNumber);
         Assert.Equal(ModerationStatus.Approved, result.ModerationStatus);
+        Assert.Equal("Ari enters the northern pass.", result.SceneSummary);
+        Assert.Equal("Northern pass", result.Location);
+        Assert.Equal(1, result.StoryStateSchemaVersion);
+        Assert.Equal(2, result.SuggestedActions.Count);
+        Assert.Equal(StoryBeat.Major, result.StoryBeat);
+        Assert.False(result.IsEpisodeComplete);
+
+        var storedScene = await dbContext.Scenes.SingleAsync();
+        Assert.Equal(result.SceneSummary, storedScene.SceneSummary);
+        Assert.Contains("northern pass", storedScene.StoryStateJson);
     }
 }

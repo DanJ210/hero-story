@@ -3,6 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>hero-story-worker-development</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\HeroStory.Core\HeroStory.Core.csproj" />
@@ -10,8 +11,8 @@
     <ProjectReference Include="..\HeroStory.Api\HeroStory.Api.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
   </ItemGroup>
   <ItemGroup>
     <None Update="assets\placeholder.png">

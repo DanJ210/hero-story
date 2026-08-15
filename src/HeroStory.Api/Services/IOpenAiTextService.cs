@@ -1,6 +1,8 @@
+using HeroStory.Api.DTOs.Scene;
+
 namespace HeroStory.Api.Services;
 
 public interface IOpenAiTextService
 {
-    Task<string> GenerateNarrativeAsync(string prompt, CancellationToken cancellationToken);
+    Task<GeneratedStoryTurn> GenerateTurnAsync(string prompt, CancellationToken cancellationToken);
 }
