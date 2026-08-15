@@ -42,6 +42,8 @@ Then run the application services directly:
 
 With `DB_APPLY_MIGRATIONS=true`, API startup applies the committed EF Core migrations. A bad SQL login or unavailable server therefore fails during startup instead of surfacing later as a request-time error.
 
+Creating a story calls OpenAI moderation and chat generation immediately to produce the opening passage. The configured API key must have access to `omni-moderation-latest`, the configured text model, and available quota. Provider rate-limit or quota failures return `503 Service Unavailable`, and the incomplete session is removed rather than left in the user's story list.
+
 ## Development authentication
 
 The Development profile enables a temporary authentication shortcut for exercising authenticated application flows without registering or entering a password:

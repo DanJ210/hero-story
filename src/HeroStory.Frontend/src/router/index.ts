@@ -3,8 +3,7 @@ import { useAuthStore } from "../stores/authStore";
 import LoginPage from "../pages/LoginPage.vue";
 import RegisterPage from "../pages/RegisterPage.vue";
 import DashboardPage from "../pages/DashboardPage.vue";
-import SessionPage from "../pages/SessionPage.vue";
-import ScenePage from "../pages/ScenePage.vue";
+import StoryWorkspacePage from "../pages/StoryWorkspacePage.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -12,8 +11,8 @@ const router = createRouter({
     { path: "/login", component: LoginPage },
     { path: "/register", component: RegisterPage },
     { path: "/", component: DashboardPage, meta: { requiresAuth: true } },
-    { path: "/sessions/:sessionId", component: SessionPage, meta: { requiresAuth: true } },
-    { path: "/sessions/:sessionId/scenes/:sceneId", component: ScenePage, meta: { requiresAuth: true } }
+    { path: "/sessions/:sessionId", component: StoryWorkspacePage, meta: { requiresAuth: true } },
+    { path: "/sessions/:sessionId/scenes/:sceneId", redirect: (to) => `/sessions/${to.params.sessionId}`, meta: { requiresAuth: true } }
   ]
 });
 

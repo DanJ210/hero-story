@@ -17,7 +17,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+});
 builder.Services.AddEndpointsApiExplorer();
 if (builder.Environment.IsDevelopment())
 {
@@ -131,6 +135,7 @@ builder.Services.AddSingleton<AzureQueueClient>();
 builder.Services.AddSingleton<AzureBlobService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IStoryService, StoryService>();
+builder.Services.AddScoped<IStoryCreationService, StoryCreationService>();
 builder.Services.AddScoped<ISceneService, SceneService>();
 builder.Services.AddScoped<IModerationService, ModerationService>();
 builder.Services.AddScoped<IOpenAiTextService, OpenAiTextService>();

@@ -32,6 +32,11 @@ public class ExceptionHandlingMiddleware
         {
             await WriteProblemAsync(context, HttpStatusCode.BadRequest, ex.Message);
         }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "External service request failed with status {StatusCode}.", ex.StatusCode);
+            await WriteProblemAsync(context, HttpStatusCode.ServiceUnavailable, "A required external service is temporarily unavailable.");
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception.");

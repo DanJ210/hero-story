@@ -16,6 +16,8 @@ For deeper detail, start with [docs/application-overview.md](docs/application-ov
 
 The target experience, turn contract, revision behavior, and MVP acceptance criteria are defined in [docs/story-experience.md](docs/story-experience.md).
 
+The reader-first workspace now includes latest stories, a continuous narrative timeline, inline artwork states, suggested actions, and a persistent hero-action composer across desktop and mobile. Current delivery focus is immutable latest-turn revision and active-path history. See [docs/roadmap.md](docs/roadmap.md#current-milestone).
+
 ## Architecture summary
 
 The target architecture and current scaffold are aligned around these components:
@@ -76,8 +78,8 @@ Additional setup and troubleshooting notes are in [docs/development-guide.md](do
 
 ### Scene generation flow
 
-1. Authenticated user creates a story session through `POST /api/sessions`.
-2. User submits what their hero says, attempts, or chooses through `POST /api/sessions/{id}/scenes`.
+1. Authenticated user creates a story session through `POST /api/sessions`; the API immediately generates and returns the opening turn with the session.
+2. User submits what their hero says, attempts, or chooses through `POST /api/sessions/{id}/scenes` to continue.
 3. API moderates the contribution, advances the narrative, and returns the next story turn.
 4. API validates and stores structured narrative output, including summary, location, active conflict, schema-versioned state, 2–3 optional suggested actions, story beat, and episode-completion status.
 5. The next request receives the latest accepted summary, location, conflict, schema-versioned state, and narrative passage as bounded continuity context. Artwork is queued only for opening, major, climax, and conclusion beats; standard turns report `notRequested` and are not polled. Multi-turn summary compaction, latest-turn revision, session episode transitions, and explicit artwork requests/retries remain planned.

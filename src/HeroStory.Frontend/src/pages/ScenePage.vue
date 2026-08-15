@@ -8,6 +8,7 @@
     <p v-else-if="sceneStore.currentScene.artworkStatus === 'failed'">Artwork generation failed.</p>
     <p v-else-if="sceneStore.currentScene.artworkStatus === 'poisoned'">Artwork could not be generated after several attempts.</p>
     <p v-else-if="sceneStore.currentScene.artworkStatus === 'completed'">Artwork is temporarily unavailable.</p>
+    <p><RouterLink :to="`/sessions/${sessionId}`">Continue story</RouterLink></p>
   </section>
 </template>
 

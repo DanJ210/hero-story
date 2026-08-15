@@ -36,7 +36,7 @@ public class SceneService : ISceneService
             .OrderBy(x => x.SequenceNumber)
             .ToListAsync(cancellationToken);
 
-        return scenes.Select(ToListDto).ToArray();
+        return scenes.Select(SceneDtoMapper.ToListDto).ToArray();
     }
 
     public async Task<SceneDto?> GetSceneAsync(Guid userId, Guid sessionId, Guid sceneId, CancellationToken cancellationToken)
@@ -47,7 +47,7 @@ public class SceneService : ISceneService
             .Where(x => x.Id == sceneId && x.SessionId == sessionId && x.Session.UserId == userId)
             .SingleOrDefaultAsync(cancellationToken);
 
-        return scene is null ? null : ToDto(scene);
+        return scene is null ? null : SceneDtoMapper.ToDto(scene);
     }
 
     public async Task<SceneDto> CreateSceneAsync(Guid userId, Guid sessionId, CreateSceneRequest request, CancellationToken cancellationToken)
@@ -60,7 +60,28 @@ public class SceneService : ISceneService
             .OrderByDescending(scene => scene.SequenceNumber)
             .FirstOrDefaultAsync(cancellationToken);
 
-        var moderation = await _moderationService.ModerateInputAsync(request.ChoiceText, cancellationToken);
+        return await CreateSceneCoreAsync(session, latestScene, request.ChoiceText, request.ChoiceText, cancellationToken);
+    }
+
+    public async Task<SceneDto> CreateOpeningSceneAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.StorySessions.SingleOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken)
+            ?? throw new KeyNotFoundException("Session not found.");
+        var hasScene = await _dbContext.Scenes.AnyAsync(scene => scene.SessionId == sessionId, cancellationToken);
+        if (hasScene)
+        {
+            throw new InvalidOperationException("The story already has an opening scene.");
+        }
+
+        var moderationInput = $"{session.Title}\n{session.Genre}\n{session.HeroArchetype}\n{session.HeroName}";
+        return await CreateSceneCoreAsync(session, null, "The story begins.", moderationInput, cancellationToken);
+    }
+
+    private async Task<SceneDto> CreateSceneCoreAsync(StorySession session, Scene? latestScene, string choiceText, string moderationInput, CancellationToken cancellationToken)
+    {
+        var sessionId = session.Id;
+
+        var moderation = await _moderationService.ModerateInputAsync(moderationInput, cancellationToken);
         if (moderation.Status != ModerationStatus.Approved)
         {
             session.ModerationFailureCount += 1;
@@ -69,7 +90,7 @@ public class SceneService : ISceneService
             throw new InvalidOperationException(moderation.Detail ?? "Scene input was rejected.");
         }
 
-        var prompt = BuildPrompt(session, latestScene, request.ChoiceText);
+        var prompt = BuildPrompt(session, latestScene, choiceText);
         var generatedTurn = await _openAiTextService.GenerateTurnAsync(prompt, cancellationToken);
         var outputModeration = await _moderationService.ModerateOutputAsync(generatedTurn.NarrativeText, cancellationToken);
 
@@ -80,7 +101,7 @@ public class SceneService : ISceneService
             Id = Guid.NewGuid(),
             SessionId = sessionId,
             SequenceNumber = sequenceNumber,
-            ChoiceText = request.ChoiceText,
+            ChoiceText = choiceText,
             NarrativeText = outputModeration.Narrative,
             SceneSummary = generatedTurn.SceneSummary,
             Location = generatedTurn.Location,
@@ -126,7 +147,7 @@ public class SceneService : ISceneService
             await _queueClient.EnqueueAsync(message, cancellationToken);
         }
 
-        return ToDto(scene);
+        return SceneDtoMapper.ToDto(scene);
     }
 
     private static string BuildPrompt(StorySession session, Scene? latestScene, string choiceText)
@@ -174,56 +195,8 @@ public class SceneService : ISceneService
             """;
     }
 
-    private static SceneDto ToDto(Scene scene)
-        => new(
-            scene.Id,
-            scene.SessionId,
-            scene.SequenceNumber,
-            scene.ChoiceText,
-            scene.NarrativeText,
-            scene.SceneSummary,
-            scene.Location,
-            scene.ActiveConflict,
-            scene.StoryStateSchemaVersion,
-            DeserializeStoryState(scene.StoryStateJson),
-            DeserializeSuggestedActions(scene.SuggestedActionsJson),
-            scene.StoryBeat,
-            scene.IsEpisodeComplete,
-            GetArtworkStatus(scene.GenerationJob?.Status),
-            scene.ImageUrl,
-            scene.ImageUrlExpiresAt,
-            scene.ModerationStatus,
-            scene.ModerationDetail,
-            scene.CreatedAt,
-            scene.UpdatedAt);
-
-    private static SceneListDto ToListDto(Scene scene)
-        => new(
-            scene.Id,
-            scene.SequenceNumber,
-            scene.ChoiceText,
-            GetArtworkStatus(scene.GenerationJob?.Status),
-            scene.ImageUrl,
-            scene.ModerationStatus,
-            scene.UpdatedAt);
-
     private static bool RequestsArtwork(StoryBeat storyBeat)
         => storyBeat is StoryBeat.Opening or StoryBeat.Major or StoryBeat.Climax or StoryBeat.Conclusion;
-
-    private static ArtworkStatus GetArtworkStatus(JobStatus? jobStatus)
-        => jobStatus switch
-        {
-            null => ArtworkStatus.NotRequested,
-            JobStatus.Queued => ArtworkStatus.Queued,
-            JobStatus.Processing => ArtworkStatus.Processing,
-            JobStatus.Completed => ArtworkStatus.Completed,
-            JobStatus.Failed => ArtworkStatus.Failed,
-            JobStatus.Poisoned => ArtworkStatus.Poisoned,
-            _ => throw new ArgumentOutOfRangeException(nameof(jobStatus), jobStatus, "Unsupported artwork job status.")
-        };
-
-    private static IReadOnlyList<string> DeserializeSuggestedActions(string value)
-        => string.IsNullOrWhiteSpace(value) ? [] : JsonSerializer.Deserialize<string[]>(value) ?? [];
 
     private static JsonElement DeserializeStoryState(string value)
         => JsonSerializer.Deserialize<JsonElement>(string.IsNullOrWhiteSpace(value) ? "{}" : value);

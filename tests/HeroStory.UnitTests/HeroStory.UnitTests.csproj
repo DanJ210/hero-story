@@ -19,5 +19,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HeroStory.Api\HeroStory.Api.csproj" />
     <ProjectReference Include="..\..\src\HeroStory.Infrastructure\HeroStory.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\HeroStory.Worker\HeroStory.Worker.csproj" />
   </ItemGroup>
 </Project>

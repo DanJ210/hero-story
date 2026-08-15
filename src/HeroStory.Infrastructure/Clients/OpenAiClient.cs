@@ -53,7 +53,7 @@ public class OpenAiClient
 
     public async Task<bool> IsFlaggedAsync(string input, CancellationToken cancellationToken)
     {
-        var model = _configuration["OPENAI_MODERATION_MODEL"] ?? "text-moderation-latest";
+        var model = _configuration["OPENAI_MODERATION_MODEL"] ?? "omni-moderation-latest";
         var response = await _httpClient.PostAsJsonAsync("/v1/moderations", new { model, input }, cancellationToken);
         response.EnsureSuccessStatusCode();
         var payload = await response.Content.ReadFromJsonAsync<ModerationResponse>(cancellationToken: cancellationToken)

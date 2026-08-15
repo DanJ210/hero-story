@@ -28,11 +28,16 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 - `GET /api/sessions`
   - Lists current user's sessions.
 - `POST /api/sessions`
-  - Creates a session.
-  - Returns `201 Created`.
+  - Creates a session and immediately generates its opening story turn from the supplied title, genre, hero archetype, and hero name.
+  - Returns `201 Created` with `{ session, openingScene }`.
+  - Removes the newly created session if opening generation fails, preventing empty stories from remaining in the session list.
 - `GET /api/sessions/{id}`
   - Gets single session.
   - Returns `404` if not found/user-mismatched.
+- `GET /api/sessions/{id}/workspace`
+  - Returns the owned session and its ordered full turn DTOs for the reader workspace.
+  - Includes artwork status and signed image URLs without requiring one detail request per turn.
+  - Returns `404` if not found or not owned by the authenticated user.
 - `PATCH /api/sessions/{id}`
   - Updates mutable session state.
 - `DELETE /api/sessions/{id}`
@@ -43,7 +48,7 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 - `GET /api/sessions/{id}/scenes`
   - Lists scenes for session.
 - `POST /api/sessions/{id}/scenes`
-  - Creates a scene and triggers generation workflow.
+  - Continues an existing story from a user action and triggers generation workflow.
   - Returns structured narrative fields: summary, location, active conflict, schema-versioned state object, 2–3 suggested actions, story beat, and episode-completion status.
   - Returns `201 Created`.
 - `GET /api/sessions/{id}/scenes/{sceneId}`
@@ -79,6 +84,7 @@ All continuation and revision operations require authentication, session ownersh
 - Rate limiter policies are configured for register, login, sessions, and scenes flows.
 - JSON contract uses camelCase.
 - Exception middleware returns normalized error responses.
+- Required external-service failures, including OpenAI rate-limit or quota failures, return `503 Service Unavailable` without exposing provider details.
 
 ## Related docs
 

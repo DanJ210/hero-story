@@ -24,7 +24,8 @@ public class PlaceholderImageStrategy : IImageGeneratorStrategy
         var placeholderPath = Path.Combine(AppContext.BaseDirectory, "assets", "placeholder.png");
         await using var stream = File.OpenRead(placeholderPath);
         var blobName = $"scenes/{job.SceneId}/placeholder.png";
-        var url = await _blobStorageService.UploadPlaceholderAsync(blobName, stream, "image/png", cancellationToken);
+        await _blobStorageService.UploadPlaceholderAsync(blobName, stream, "image/png", cancellationToken);
+        var url = _blobStorageService.GenerateImageAccessUrl(blobName);
         var scene = await _dbContext.Scenes.SingleAsync(x => x.Id == job.SceneId, cancellationToken);
         scene.ImageUrl = url;
         scene.ImageUrlExpiresAt = DateTime.UtcNow.AddHours(24);

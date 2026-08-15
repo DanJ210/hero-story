@@ -146,23 +146,29 @@ The user should be able to preview, replace, disable, and remove their likeness 
 
 ## UX direction
 
+- The implemented frontend uses a persistent story workspace rather than navigating between disconnected scene cards.
+- On desktop, it shows a latest-stories rail beside one active story timeline; on mobile, the rail moves into a drawer.
 - Present generated prose with readable book-like typography and spacing.
 - Present user contributions as compact actions between passages.
 - Keep the input anchored to the current story with language such as “What does your hero do?”
 - Show 2–3 suggested actions near the input while preserving free-text entry.
+- Keep the composer fixed or sticky without covering the final passage on desktop or mobile.
+- Selecting a recent story resumes its ordered active timeline rather than opening a management page first.
 - Provide a visible revision action on the latest turn.
 - Keep the active story path readable as a continuous episode.
 - Treat image status as secondary to reading and decision-making.
 
 ## Current implementation gap
 
-The current implementation validates a structured JSON model response and persists narrative, summary, location, active conflict, schema-versioned story state, 2–3 suggested actions, story-beat classification, and episode-completion status per `Scene`. Each subsequent turn receives the latest accepted scene summary, location, conflict, state, and narrative passage as bounded continuity context.
+Creating a story session now generates and returns its opening turn from the supplied hero/session details; users are not left with an empty session. The current implementation validates a structured JSON model response and persists narrative, summary, location, active conflict, schema-versioned story state, 2–3 suggested actions, story-beat classification, and episode-completion status per `Scene`. Each subsequent turn receives the latest accepted scene summary, location, conflict, state, and narrative passage as bounded continuity context.
 
 The parser enforces the 250–500 word target, field lengths, 2–3 distinct suggestions, object-shaped state, and a 16 KB serialized state limit. Persisted context must use supported schema version 1.
 
 Artwork is now requested only for opening, major, climax, and conclusion beats. Standard turns create no image job. Scene responses expose `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned` artwork status so clients poll only active work.
 
-It does not yet build summaries across multiple older turns, retry malformed provider responses, implement revision lineage or active-path reads, update session episode status, or support explicit user-requested artwork and image retry.
+The frontend now presents ordered turns as one reader-first timeline, places user actions between passages, displays inline artwork states, offers suggestions, and keeps a persistent composer available. Latest stories can be resumed from a desktop rail or mobile drawer.
+
+The application does not yet build summaries across multiple older turns, retry malformed provider responses, implement revision lineage or active-path reads, update session episode status, or support explicit user-requested artwork and image retry.
 
 These gaps are implementation work, not completed behavior. Delivery sequencing is tracked in [roadmap.md](roadmap.md).
 

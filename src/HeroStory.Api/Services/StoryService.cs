@@ -28,6 +28,24 @@ public class StoryService : IStoryService
             .Select(x => new SessionDto(x.Id, x.Title, x.Genre, x.HeroArchetype, x.HeroName, x.Status, x.ModerationFailureCount, x.CreatedAt, x.UpdatedAt))
             .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<StoryWorkspaceDto?> GetWorkspaceAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.StorySessions
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(story => story.Scenes)
+                .ThenInclude(scene => scene.GenerationJob)
+            .SingleOrDefaultAsync(story => story.Id == sessionId && story.UserId == userId, cancellationToken);
+        if (session is null)
+        {
+            return null;
+        }
+
+        var sessionDto = new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt);
+        var turns = session.Scenes.OrderBy(scene => scene.SequenceNumber).Select(SceneDtoMapper.ToDto).ToArray();
+        return new StoryWorkspaceDto(sessionDto, turns);
+    }
+
     public async Task<SessionDto> CreateSessionAsync(Guid userId, CreateSessionRequest request, CancellationToken cancellationToken)
     {
         var session = new StorySession

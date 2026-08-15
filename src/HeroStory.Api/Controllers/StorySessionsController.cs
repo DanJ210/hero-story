@@ -13,10 +13,12 @@ namespace HeroStory.Api.Controllers;
 public class StorySessionsController : ControllerBase
 {
     private readonly IStoryService _storyService;
+    private readonly IStoryCreationService _storyCreationService;
 
-    public StorySessionsController(IStoryService storyService)
+    public StorySessionsController(IStoryService storyService, IStoryCreationService storyCreationService)
     {
         _storyService = storyService;
+        _storyCreationService = storyCreationService;
     }
 
     [HttpGet]
@@ -25,16 +27,23 @@ public class StorySessionsController : ControllerBase
 
     [HttpPost]
     [EnableRateLimiting("sessions")]
-    public async Task<ActionResult<SessionDto>> CreateSession(CreateSessionRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<CreateStorySessionResponse>> CreateSession(CreateSessionRequest request, CancellationToken cancellationToken)
     {
-        var response = await _storyService.CreateSessionAsync(GetUserId(), request, cancellationToken);
-        return CreatedAtAction(nameof(GetSession), new { id = response.Id }, response);
+        var response = await _storyCreationService.CreateAsync(GetUserId(), request, cancellationToken);
+        return CreatedAtAction(nameof(GetSession), new { id = response.Session.Id }, response);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SessionDto>> GetSession(Guid id, CancellationToken cancellationToken)
     {
         var response = await _storyService.GetSessionAsync(GetUserId(), id, cancellationToken);
+        return response is null ? NotFound() : Ok(response);
+    }
+
+    [HttpGet("{id:guid}/workspace")]
+    public async Task<ActionResult<StoryWorkspaceDto>> GetWorkspace(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await _storyService.GetWorkspaceAsync(GetUserId(), id, cancellationToken);
         return response is null ? NotFound() : Ok(response);
     }
 
