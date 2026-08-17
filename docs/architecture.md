@@ -23,7 +23,7 @@ This document describes the intended target architecture and how the current sca
 - API moderates generated prose, persists the new immutable turn on the active path, and returns it without waiting for artwork.
 - Revision creates a replacement turn from the preceding accepted turn and marks the prior latest version as superseded; it does not overwrite historical content in place.
 
-The current implementation validates and persists the structured generation result alongside `ChoiceText` and `NarrativeText`. It supplies the latest accepted summary, location, conflict, schema-versioned state, and narrative passage to the next request. It creates image jobs only for opening, major, climax, and conclusion beats and exposes derived artwork status to clients. Revision lineage, active-path semantics, multi-turn summary compaction, episode transitions, and explicit image request/retry remain planned work.
+The current implementation validates and persists the structured generation result alongside `ChoiceText` and `NarrativeText`. It supplies the latest accepted summary, location, conflict, schema-versioned state, and narrative passage to the next request. It creates image jobs automatically for opening, major, climax, and conclusion beats, and on reader request for any active scene, while exposing derived artwork status to clients. Revision history, multi-turn summary compaction, and automatic image retry remain planned work.
 
 ### Asynchronous path (worker-facing)
 

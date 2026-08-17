@@ -4,6 +4,7 @@ using HeroStory.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HeroStory.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260817000633_AddSceneRevisionLineage")]
+    partial class AddSceneRevisionLineage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -172,7 +175,8 @@ namespace HeroStory.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SceneId");
+                    b.HasIndex("SceneId")
+                        .IsUnique();
 
                     b.HasIndex("Status");
 
@@ -303,7 +307,6 @@ namespace HeroStory.Infrastructure.Data.Migrations
                         .HasDefaultValue("[]");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
@@ -504,8 +507,8 @@ namespace HeroStory.Infrastructure.Data.Migrations
             modelBuilder.Entity("HeroStory.Core.Entities.GenerationJob", b =>
                 {
                     b.HasOne("HeroStory.Core.Entities.Scene", "Scene")
-                        .WithMany("GenerationJobs")
-                        .HasForeignKey("SceneId")
+                        .WithOne("GenerationJob")
+                        .HasForeignKey("HeroStory.Core.Entities.GenerationJob", "SceneId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -615,7 +618,7 @@ namespace HeroStory.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("HeroStory.Core.Entities.Scene", b =>
                 {
-                    b.Navigation("GenerationJobs");
+                    b.Navigation("GenerationJob");
                 });
 
             modelBuilder.Entity("HeroStory.Core.Entities.StorySession", b =>

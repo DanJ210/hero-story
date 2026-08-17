@@ -89,6 +89,37 @@ public class SceneServiceTests
         queue.Verify(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task RequestArtworkAsync_QueuesManualRequestAndAllowsAnotherAfterCompletion()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Manual artwork");
+        var scene = CreatePreviousScene(session.Id, 1, "MANUAL_ARTWORK");
+        session.Scenes.Add(scene);
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var queue = CreateQueue();
+        var service = new SceneService(dbContext, new Mock<IModerationService>().Object, new Mock<IOpenAiTextService>().Object, queue.Object);
+
+        var firstRequest = await service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, CancellationToken.None);
+        var pendingException = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, CancellationToken.None));
+        var firstJob = await dbContext.GenerationJobs.SingleAsync();
+        firstJob.Status = JobStatus.Completed;
+        firstJob.CompletedAt = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync();
+
+        var secondRequest = await service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, CancellationToken.None);
+
+        Assert.Equal(ArtworkStatus.Queued, firstRequest.ArtworkStatus);
+        Assert.Contains("already being generated", pendingException.Message);
+        Assert.Equal(ArtworkStatus.Queued, secondRequest.ArtworkStatus);
+        Assert.Equal(2, await dbContext.GenerationJobs.CountAsync());
+        queue.Verify(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
     [Theory]
     [InlineData(StoryBeat.Major)]
     [InlineData(StoryBeat.Climax)]
@@ -216,6 +247,165 @@ public class SceneServiceTests
         Assert.Contains("schema version 2", exception.Message);
     }
 
+    [Fact]
+    public async Task ReviseLatestSceneAsync_SupersedesTargetAndReturnsReplacementOnActivePath()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Revision story");
+        var parent = CreatePreviousScene(session.Id, 1, "PARENT_STATE");
+        var target = CreatePreviousScene(session.Id, 2, "SUPERSEDED_STATE");
+        target.ParentSceneId = parent.Id;
+        session.Scenes.Add(parent);
+        session.Scenes.Add(target);
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var capturedPrompt = string.Empty;
+        var text = new Mock<IOpenAiTextService>();
+        text.Setup(service => service.GenerateTurnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((prompt, _) => capturedPrompt = prompt)
+            .ReturnsAsync(CreateGeneratedTurn());
+        var service = new SceneService(dbContext, CreateApprovedModeration().Object, text.Object, CreateQueue().Object);
+
+        var replacement = await service.ReviseLatestSceneAsync(
+            session.UserId,
+            session.Id,
+            target.Id,
+            new ReviseSceneRequest("Try a different route"),
+            CancellationToken.None);
+
+        var storedTarget = await dbContext.Scenes.SingleAsync(scene => scene.Id == target.Id);
+        var storedReplacement = await dbContext.Scenes.SingleAsync(scene => scene.Id == replacement.Id);
+        var activeScenes = await service.GetScenesAsync(session.UserId, session.Id, CancellationToken.None);
+
+        Assert.False(storedTarget.IsActive);
+        Assert.True(storedReplacement.IsActive);
+        Assert.Equal(target.SequenceNumber, storedReplacement.SequenceNumber);
+        Assert.Equal(parent.Id, storedReplacement.ParentSceneId);
+        Assert.Equal(target.Id, storedReplacement.RevisedFromSceneId);
+        Assert.DoesNotContain(activeScenes, scene => scene.Id == target.Id);
+        Assert.Equal(new[] { parent.Id, storedReplacement.Id }, activeScenes.Select(scene => scene.Id));
+        Assert.Contains("PARENT_STATE", capturedPrompt);
+        Assert.DoesNotContain("SUPERSEDED_STATE", capturedPrompt);
+    }
+
+    [Fact]
+    public async Task ReviseLatestSceneAsync_RejectsNonLatestActiveScene()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Revision order");
+        var first = CreatePreviousScene(session.Id, 1, "FIRST_STATE");
+        var latest = CreatePreviousScene(session.Id, 2, "LATEST_STATE");
+        latest.ParentSceneId = first.Id;
+        session.Scenes.Add(first);
+        session.Scenes.Add(latest);
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var service = new SceneService(dbContext, CreateApprovedModeration().Object, CreateTextService(StoryBeat.Standard).Object, CreateQueue().Object);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReviseLatestSceneAsync(
+            session.UserId,
+            session.Id,
+            first.Id,
+            new ReviseSceneRequest("Change the beginning"),
+            CancellationToken.None));
+
+        Assert.Contains("latest active", exception.Message);
+    }
+
+    [Fact]
+    public async Task ReviseLatestSceneAsync_AllowsOnlyOneConcurrentReplacement()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(databaseName).Options;
+        var userId = Guid.NewGuid();
+        var session = CreateSession(userId, "Concurrent revision");
+        var target = CreatePreviousScene(session.Id, 1, "TARGET_STATE");
+        session.Scenes.Add(target);
+
+        await using (var seedContext = new AppDbContext(options))
+        {
+            seedContext.Add(session);
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using var firstContext = new AppDbContext(options);
+        await using var secondContext = new AppDbContext(options);
+        var generationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var generatedTurn = new TaskCompletionSource<GeneratedStoryTurn>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var generationCalls = 0;
+        var text = new Mock<IOpenAiTextService>();
+        text.Setup(service => service.GenerateTurnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((_, _) =>
+            {
+                if (Interlocked.Increment(ref generationCalls) == 2)
+                {
+                    generationStarted.TrySetResult();
+                }
+
+                return generatedTurn.Task;
+            });
+        var moderation = CreateApprovedModeration();
+        var firstService = new SceneService(firstContext, moderation.Object, text.Object, CreateQueue().Object);
+        var secondService = new SceneService(secondContext, moderation.Object, text.Object, CreateQueue().Object);
+
+        var firstRevision = firstService.ReviseLatestSceneAsync(userId, session.Id, target.Id, new ReviseSceneRequest("First replacement"), CancellationToken.None);
+        var secondRevision = secondService.ReviseLatestSceneAsync(userId, session.Id, target.Id, new ReviseSceneRequest("Second replacement"), CancellationToken.None);
+        await generationStarted.Task;
+        generatedTurn.TrySetResult(CreateGeneratedTurn());
+
+        await Assert.ThrowsAnyAsync<DbUpdateConcurrencyException>(() => Task.WhenAll(firstRevision, secondRevision));
+
+        await using var verificationContext = new AppDbContext(options);
+        var scenes = await verificationContext.Scenes.Where(scene => scene.SessionId == session.Id).ToListAsync();
+        Assert.Single(scenes.Where(scene => scene.IsActive));
+        Assert.Single(scenes.Where(scene => !scene.IsActive));
+    }
+
+    [Fact]
+    public async Task ConcludeEpisodeAsync_CompletesSessionWhenProviderConfirmsCompletion()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Episode conclusion");
+        session.Scenes.Add(CreatePreviousScene(session.Id, 1, "UNRESOLVED_THREAT"));
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var text = new Mock<IOpenAiTextService>();
+        text.Setup(service => service.GenerateTurnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateGeneratedTurn(StoryBeat.Conclusion, true));
+        var service = new SceneService(dbContext, CreateApprovedModeration().Object, text.Object, CreateQueue().Object);
+
+        var conclusion = await service.ConcludeEpisodeAsync(session.UserId, session.Id, CancellationToken.None);
+
+        Assert.True(conclusion.IsEpisodeComplete);
+        Assert.Equal(StoryBeat.Conclusion, conclusion.StoryBeat);
+        Assert.Equal(SessionStatus.Completed, session.Status);
+        Assert.Equal(2, conclusion.SequenceNumber);
+    }
+
+    [Fact]
+    public async Task CreateSceneAsync_RejectsPausedEpisode()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Paused episode");
+        session.Status = SessionStatus.Paused;
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var service = new SceneService(dbContext, CreateApprovedModeration().Object, CreateTextService(StoryBeat.Standard).Object, CreateQueue().Object);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue anyway"), CancellationToken.None));
+
+        Assert.Contains("not active", exception.Message);
+    }
+
     private static StorySession CreateSession(Guid userId, string title)
         => new()
         {
@@ -269,7 +459,7 @@ public class SceneServiceTests
         return text;
     }
 
-    private static GeneratedStoryTurn CreateGeneratedTurn(StoryBeat storyBeat = StoryBeat.Standard)
+    private static GeneratedStoryTurn CreateGeneratedTurn(StoryBeat storyBeat = StoryBeat.Standard, bool isEpisodeComplete = false)
         => new(
             CreateNarrative(),
             "Ari protects the city.",
@@ -278,7 +468,7 @@ public class SceneServiceTests
             "{\"facts\":[\"The city is under attack\"]}",
             ["Protect civilians", "Confront the attacker"],
             storyBeat,
-            false);
+            isEpisodeComplete);
 
     private static string CreateNarrative(int wordCount = 250)
         => string.Join(' ', Enumerable.Repeat("hero", wordCount));

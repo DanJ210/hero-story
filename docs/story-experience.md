@@ -164,11 +164,11 @@ Creating a story session now generates and returns its opening turn from the sup
 
 The parser enforces the 250–500 word target, field lengths, 2–3 distinct suggestions, object-shaped state, and a 16 KB serialized state limit. Persisted context must use supported schema version 1.
 
-Artwork is now requested only for opening, major, climax, and conclusion beats. Standard turns create no image job. Scene responses expose `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned` artwork status so clients poll only active work.
+Artwork is requested automatically for opening, major, climax, and conclusion beats. Readers can also request artwork manually for any active-path scene and request another image after the prior job settles. Scene responses expose `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned` artwork status so clients poll only active work.
 
 The frontend now presents ordered turns as one reader-first timeline, places user actions between passages, displays inline artwork states, offers suggestions, and keeps a persistent composer available. Latest stories can be resumed from a desktop rail or mobile drawer.
 
-The application does not yet build summaries across multiple older turns, retry malformed provider responses, implement revision lineage or active-path reads, update session episode status, or support explicit user-requested artwork and image retry.
+The application preserves immutable latest-turn revisions and returns the active path by default. The workspace exposes an inline revision editor only for the latest active turn, warns that the prior version remains in history, and returns focus to the replacement turn. Readers can pause and resume an active episode, request a conclusion, and continue reading a completed active path; completed or paused episodes do not accept new actions. It does not yet expose revision history, build summaries across multiple older turns, retry malformed provider responses, or support automatic artwork retry after failure.
 
 These gaps are implementation work, not completed behavior. Delivery sequencing is tracked in [roadmap.md](roadmap.md).
 

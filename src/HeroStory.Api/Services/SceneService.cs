@@ -31,8 +31,8 @@ public class SceneService : ISceneService
     {
         var scenes = await _dbContext.Scenes
             .AsNoTracking()
-            .Include(scene => scene.GenerationJob)
-            .Where(x => x.SessionId == sessionId && x.Session.UserId == userId)
+            .Include(scene => scene.GenerationJobs)
+            .Where(x => x.SessionId == sessionId && x.Session.UserId == userId && x.IsActive)
             .OrderBy(x => x.SequenceNumber)
             .ToListAsync(cancellationToken);
 
@@ -43,8 +43,8 @@ public class SceneService : ISceneService
     {
         var scene = await _dbContext.Scenes
             .AsNoTracking()
-            .Include(x => x.GenerationJob)
-            .Where(x => x.Id == sceneId && x.SessionId == sessionId && x.Session.UserId == userId)
+            .Include(x => x.GenerationJobs)
+            .Where(x => x.Id == sceneId && x.SessionId == sessionId && x.Session.UserId == userId && x.IsActive)
             .SingleOrDefaultAsync(cancellationToken);
 
         return scene is null ? null : SceneDtoMapper.ToDto(scene);
@@ -54,30 +54,113 @@ public class SceneService : ISceneService
     {
         var session = await _dbContext.StorySessions.SingleOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken)
             ?? throw new KeyNotFoundException("Session not found.");
+        EnsureSessionIsActive(session);
         var latestScene = await _dbContext.Scenes
             .AsNoTracking()
-            .Where(scene => scene.SessionId == sessionId)
+            .Where(scene => scene.SessionId == sessionId && scene.IsActive)
             .OrderByDescending(scene => scene.SequenceNumber)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return await CreateSceneCoreAsync(session, latestScene, request.ChoiceText, request.ChoiceText, cancellationToken);
+        return await CreateSceneCoreAsync(
+            session,
+            latestScene,
+            request.ChoiceText,
+            request.ChoiceText,
+            (latestScene?.SequenceNumber ?? 0) + 1,
+            latestScene?.Id,
+            null,
+            null,
+            false,
+            cancellationToken);
     }
 
     public async Task<SceneDto> CreateOpeningSceneAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
     {
         var session = await _dbContext.StorySessions.SingleOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken)
             ?? throw new KeyNotFoundException("Session not found.");
-        var hasScene = await _dbContext.Scenes.AnyAsync(scene => scene.SessionId == sessionId, cancellationToken);
+        EnsureSessionIsActive(session);
+        var hasScene = await _dbContext.Scenes.AnyAsync(scene => scene.SessionId == sessionId && scene.IsActive, cancellationToken);
         if (hasScene)
         {
             throw new InvalidOperationException("The story already has an opening scene.");
         }
 
         var moderationInput = $"{session.Title}\n{session.Genre}\n{session.HeroArchetype}\n{session.HeroName}";
-        return await CreateSceneCoreAsync(session, null, "The story begins.", moderationInput, cancellationToken);
+        return await CreateSceneCoreAsync(session, null, "The story begins.", moderationInput, 1, null, null, null, false, cancellationToken);
     }
 
-    private async Task<SceneDto> CreateSceneCoreAsync(StorySession session, Scene? latestScene, string choiceText, string moderationInput, CancellationToken cancellationToken)
+    public async Task<SceneDto> ConcludeEpisodeAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.StorySessions.SingleOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken)
+            ?? throw new KeyNotFoundException("Session not found.");
+        EnsureSessionIsActive(session);
+        var latestScene = await _dbContext.Scenes
+            .AsNoTracking()
+            .Where(scene => scene.SessionId == sessionId && scene.IsActive)
+            .OrderByDescending(scene => scene.SequenceNumber)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException("An episode needs an opening turn before it can conclude.");
+
+        const string conclusionAction = "Bring this episode to a definitive conclusion, resolving the active conflict and showing the consequences of the hero's choices.";
+        return await CreateSceneCoreAsync(
+            session,
+            latestScene,
+            conclusionAction,
+            conclusionAction,
+            latestScene.SequenceNumber + 1,
+            latestScene.Id,
+            null,
+            null,
+            true,
+            cancellationToken);
+    }
+
+    public async Task<SceneDto> ReviseLatestSceneAsync(Guid userId, Guid sessionId, Guid sceneId, ReviseSceneRequest request, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.StorySessions.SingleOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken)
+            ?? throw new KeyNotFoundException("Session not found.");
+        EnsureSessionIsActive(session);
+        var target = await _dbContext.Scenes.SingleOrDefaultAsync(
+            scene => scene.Id == sceneId && scene.SessionId == sessionId && scene.IsActive,
+            cancellationToken)
+            ?? throw new KeyNotFoundException("Active scene not found.");
+        var latestScene = await _dbContext.Scenes
+            .Where(scene => scene.SessionId == sessionId && scene.IsActive)
+            .OrderByDescending(scene => scene.SequenceNumber)
+            .FirstAsync(cancellationToken);
+        if (latestScene.Id != target.Id)
+        {
+            throw new InvalidOperationException("Only the latest active scene can be revised.");
+        }
+
+        var parentScene = target.ParentSceneId is null
+            ? null
+            : await _dbContext.Scenes.SingleAsync(scene => scene.Id == target.ParentSceneId, cancellationToken);
+        var replacement = await CreateSceneCoreAsync(
+            session,
+            parentScene,
+            request.ChoiceText,
+            request.ChoiceText,
+            target.SequenceNumber,
+            target.ParentSceneId,
+            target.Id,
+            target,
+            false,
+            cancellationToken);
+        return replacement;
+    }
+
+    private async Task<SceneDto> CreateSceneCoreAsync(
+        StorySession session,
+        Scene? continuityScene,
+        string choiceText,
+        string moderationInput,
+        int sequenceNumber,
+        Guid? parentSceneId,
+        Guid? revisedFromSceneId,
+        Scene? supersededScene,
+        bool requireEpisodeComplete,
+        CancellationToken cancellationToken)
     {
         var sessionId = session.Id;
 
@@ -90,17 +173,22 @@ public class SceneService : ISceneService
             throw new InvalidOperationException(moderation.Detail ?? "Scene input was rejected.");
         }
 
-        var prompt = BuildPrompt(session, latestScene, choiceText);
+        var prompt = BuildPrompt(session, continuityScene, choiceText);
         var generatedTurn = await _openAiTextService.GenerateTurnAsync(prompt, cancellationToken);
         var outputModeration = await _moderationService.ModerateOutputAsync(generatedTurn.NarrativeText, cancellationToken);
+        if (requireEpisodeComplete && !generatedTurn.IsEpisodeComplete)
+        {
+            throw new InvalidOperationException("The episode conclusion did not include completion metadata.");
+        }
 
-        var sequenceNumber = (latestScene?.SequenceNumber ?? 0) + 1;
-        var storyBeat = latestScene is null ? StoryBeat.Opening : generatedTurn.StoryBeat;
+        var storyBeat = continuityScene is null ? StoryBeat.Opening : generatedTurn.StoryBeat;
         var scene = new Scene
         {
             Id = Guid.NewGuid(),
             SessionId = sessionId,
             SequenceNumber = sequenceNumber,
+            ParentSceneId = parentSceneId,
+            RevisedFromSceneId = revisedFromSceneId,
             ChoiceText = choiceText,
             NarrativeText = outputModeration.Narrative,
             SceneSummary = generatedTurn.SceneSummary,
@@ -130,16 +218,39 @@ public class SceneService : ISceneService
                 UpdatedAt = DateTime.UtcNow,
                 Scene = scene
             };
-            scene.GenerationJob = job;
+            scene.GenerationJobs.Add(job);
         }
 
-        _dbContext.Scenes.Add(scene);
-        if (job is not null)
+        if (supersededScene is not null)
         {
-            _dbContext.GenerationJobs.Add(job);
+            if (_dbContext.Database.IsRelational())
+            {
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+                await SupersedeAndPersistReplacementAsync(supersededScene, session, scene, job, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            else
+            {
+                await SupersedeAndPersistReplacementAsync(supersededScene, session, scene, job, cancellationToken);
+            }
         }
-        session.UpdatedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        else
+        {
+            _dbContext.Scenes.Add(scene);
+            if (job is not null)
+            {
+                _dbContext.GenerationJobs.Add(job);
+            }
+            session.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        if (scene.IsEpisodeComplete)
+        {
+            session.Status = SessionStatus.Completed;
+            session.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         if (job is not null)
         {
@@ -148,6 +259,55 @@ public class SceneService : ISceneService
         }
 
         return SceneDtoMapper.ToDto(scene);
+    }
+
+    public async Task<SceneDto> RequestArtworkAsync(Guid userId, Guid sessionId, Guid sceneId, CancellationToken cancellationToken)
+    {
+        var scene = await _dbContext.Scenes
+            .Include(candidate => candidate.GenerationJobs)
+            .SingleOrDefaultAsync(candidate => candidate.Id == sceneId && candidate.SessionId == sessionId && candidate.IsActive && candidate.Session.UserId == userId, cancellationToken)
+            ?? throw new KeyNotFoundException("Active scene not found.");
+        if (scene.GenerationJobs.Any(job => job.Status is JobStatus.Queued or JobStatus.Processing))
+        {
+            throw new InvalidOperationException("Artwork is already being generated for this scene.");
+        }
+
+        var job = new GenerationJob
+        {
+            Id = Guid.NewGuid(),
+            SceneId = scene.Id,
+            SessionId = scene.SessionId,
+            Prompt = $"Manual artwork request for scene {scene.SequenceNumber}.",
+            Status = JobStatus.Queued,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _dbContext.GenerationJobs.Add(job);
+        scene.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        var message = JsonSerializer.Serialize(new { jobId = job.Id, sceneId = scene.Id, sessionId = scene.SessionId });
+        await _queueClient.EnqueueAsync(message, cancellationToken);
+        return SceneDtoMapper.ToDto(scene);
+    }
+
+    private async Task SupersedeAndPersistReplacementAsync(
+        Scene supersededScene,
+        StorySession session,
+        Scene replacementScene,
+        GenerationJob? job,
+        CancellationToken cancellationToken)
+    {
+        supersededScene.IsActive = false;
+        supersededScene.UpdatedAt = DateTime.UtcNow;
+        session.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _dbContext.Scenes.Add(replacementScene);
+        if (job is not null)
+        {
+            _dbContext.GenerationJobs.Add(job);
+        }
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static string BuildPrompt(StorySession session, Scene? latestScene, string choiceText)
@@ -197,6 +357,14 @@ public class SceneService : ISceneService
 
     private static bool RequestsArtwork(StoryBeat storyBeat)
         => storyBeat is StoryBeat.Opening or StoryBeat.Major or StoryBeat.Climax or StoryBeat.Conclusion;
+
+    private static void EnsureSessionIsActive(StorySession session)
+    {
+        if (session.Status != SessionStatus.Active)
+        {
+            throw new InvalidOperationException("This episode is not active. Resume a paused episode or begin a new episode.");
+        }
+    }
 
     private static JsonElement DeserializeStoryState(string value)
         => JsonSerializer.Deserialize<JsonElement>(string.IsNullOrWhiteSpace(value) ? "{}" : value);

@@ -15,7 +15,7 @@ The application demonstrates an end-to-end architecture for:
 - selective asynchronous artwork for major story beats,
 - cloud-aligned storage patterns (SQL, queue, blob).
 
-The product and acceptance contract is defined in [story-experience.md](story-experience.md). The current implementation persists validated structured turn output, feeds the latest accepted turn into the next bounded prompt, and dispatches artwork only for qualifying story beats. Revision lineage, active-path reads, session episode transitions, explicit artwork requests/retries, and multi-turn summary compaction remain roadmap work.
+The product and acceptance contract is defined in [story-experience.md](story-experience.md). The current implementation persists validated structured turn output, feeds the latest accepted turn into the next bounded prompt, dispatches qualifying artwork automatically, and permits manual artwork requests per active scene. Revision history, multi-turn summary compaction, and automatic artwork retry remain roadmap work.
 
 Session creation is the beginning of the reading experience: the API generates an opening turn from the submitted hero details and returns it with the new session.
 

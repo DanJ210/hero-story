@@ -19,7 +19,7 @@ public class PlaceholderImageStrategyTests
         var session = new StorySession { Id = Guid.NewGuid(), UserId = user.Id, Title = "Story", Genre = "Superhero", HeroArchetype = "Guardian", HeroName = "Ari", User = user, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
         var scene = new Scene { Id = Guid.NewGuid(), SessionId = session.Id, SequenceNumber = 1, ChoiceText = "Begin", NarrativeText = "Narrative", SceneSummary = "Summary", Location = "City", ActiveConflict = "Threat", Session = session, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
         var job = new GenerationJob { Id = Guid.NewGuid(), SceneId = scene.Id, SessionId = session.Id, Prompt = "Prompt", Scene = scene, Status = JobStatus.Processing, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
-        scene.GenerationJob = job;
+        scene.GenerationJobs.Add(job);
         dbContext.AddRange(user, session, scene, job);
         await dbContext.SaveChangesAsync();
         var blobStorage = new Mock<IBlobStorageService>();

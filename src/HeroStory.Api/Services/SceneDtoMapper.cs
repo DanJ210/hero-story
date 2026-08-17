@@ -22,7 +22,7 @@ public static class SceneDtoMapper
             DeserializeSuggestedActions(scene.SuggestedActionsJson),
             scene.StoryBeat,
             scene.IsEpisodeComplete,
-            GetArtworkStatus(scene.GenerationJob?.Status),
+            GetArtworkStatus(GetLatestJob(scene)?.Status),
             scene.ImageUrl,
             scene.ImageUrlExpiresAt,
             scene.ModerationStatus,
@@ -35,7 +35,7 @@ public static class SceneDtoMapper
             scene.Id,
             scene.SequenceNumber,
             scene.ChoiceText,
-            GetArtworkStatus(scene.GenerationJob?.Status),
+            GetArtworkStatus(GetLatestJob(scene)?.Status),
             scene.ImageUrl,
             scene.ModerationStatus,
             scene.UpdatedAt);
@@ -45,6 +45,9 @@ public static class SceneDtoMapper
 
     private static JsonElement DeserializeStoryState(string value)
         => JsonSerializer.Deserialize<JsonElement>(string.IsNullOrWhiteSpace(value) ? "{}" : value);
+
+    private static GenerationJob? GetLatestJob(Scene scene)
+        => scene.GenerationJobs.OrderByDescending(job => job.CreatedAt).ThenByDescending(job => job.Id).FirstOrDefault();
 
     private static ArtworkStatus GetArtworkStatus(JobStatus? jobStatus)
         => jobStatus switch

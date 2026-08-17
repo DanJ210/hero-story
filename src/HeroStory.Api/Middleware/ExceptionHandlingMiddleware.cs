@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace HeroStory.Api.Middleware;
 
@@ -31,6 +32,10 @@ public class ExceptionHandlingMiddleware
         catch (InvalidOperationException ex)
         {
             await WriteProblemAsync(context, HttpStatusCode.BadRequest, ex.Message);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await WriteProblemAsync(context, HttpStatusCode.Conflict, "The story changed before this request completed. Refresh the latest turn and try again.");
         }
         catch (HttpRequestException ex)
         {

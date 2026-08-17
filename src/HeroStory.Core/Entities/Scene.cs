@@ -7,6 +7,9 @@ public class Scene
     public Guid Id { get; set; }
     public Guid SessionId { get; set; }
     public int SequenceNumber { get; set; }
+    public Guid? ParentSceneId { get; set; }
+    public Guid? RevisedFromSceneId { get; set; }
+    public bool IsActive { get; set; } = true;
     public string ChoiceText { get; set; } = string.Empty;
     public string NarrativeText { get; set; } = string.Empty;
     public string SceneSummary { get; set; } = string.Empty;
@@ -24,5 +27,5 @@ public class Scene
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public StorySession Session { get; set; } = null!;
-    public GenerationJob? GenerationJob { get; set; }
+    public ICollection<GenerationJob> GenerationJobs { get; set; } = [];
 }

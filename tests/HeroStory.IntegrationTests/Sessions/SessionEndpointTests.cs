@@ -53,6 +53,36 @@ public class SessionEndpointTests
         Assert.Equal(System.Net.HttpStatusCode.NotFound, foreignResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task PauseAndResumeSession_TransitionsOwnedEpisodeStatus()
+    {
+        await using var fixture = new DevelopmentApiFixture();
+        using var client = fixture.CreateClient();
+        var loginResponse = await client.PostAsync("/api/auth/dev-login", null);
+        var tokens = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>();
+        Assert.NotNull(tokens);
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        StorySession session;
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var user = dbContext.Users.Single(account => account.Email == "developer@hero-story.local");
+            session = CreateSession(user.Id, "Pauseable story");
+            dbContext.Add(session);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var pauseResponse = await client.PostAsync($"/api/sessions/{session.Id}/pause", null);
+        var resumeResponse = await client.PostAsync($"/api/sessions/{session.Id}/resume", null);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, pauseResponse.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, resumeResponse.StatusCode);
+        using var verificationScope = fixture.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(SessionStatus.Active, verificationContext.StorySessions.Single(story => story.Id == session.Id).Status);
+    }
+
     private static StorySession CreateSession(Guid userId, string title)
         => new()
         {

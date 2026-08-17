@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
 
 namespace HeroStory.Infrastructure.Clients;
@@ -7,6 +8,7 @@ public class OpenAiClient
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly TimeSpan _requestTimeout;
 
     public OpenAiClient(HttpClient httpClient, IConfiguration configuration)
     {
@@ -22,7 +24,8 @@ public class OpenAiClient
         var timeoutSeconds = int.TryParse(_configuration["OPENAI_REQUEST_TIMEOUT_SECONDS"], out var parsedTimeout)
             ? parsedTimeout
             : 30;
-        _httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+        _requestTimeout = TimeSpan.FromSeconds(timeoutSeconds);
+        _httpClient.Timeout = Timeout.InfiniteTimeSpan;
     }
 
     public async Task<string> CreateChatCompletionAsync(string prompt, CancellationToken cancellationToken)
@@ -61,9 +64,74 @@ public class OpenAiClient
         return payload.Results.FirstOrDefault()?.Flagged ?? false;
     }
 
+    public async Task<byte[]> GenerateImageAsync(string imagePrompt, CancellationToken cancellationToken)
+    {
+        var model = _configuration["OPENAI_IMAGE_MODEL"] ?? "gpt-image-1";
+        var size = _configuration["OPENAI_IMAGE_SIZE"] ?? "1024x1024";
+        var quality = _configuration["OPENAI_IMAGE_QUALITY"] ?? "auto";
+        var boundedPrompt = imagePrompt.Length > 4000 ? imagePrompt[..4000] : imagePrompt;
+        using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCancellation.CancelAfter(_requestTimeout);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.PostAsJsonAsync("/v1/images/generations", new
+            {
+                model,
+                prompt = boundedPrompt,
+                n = 1,
+                size,
+                quality,
+                output_format = "png"
+            }, timeoutCancellation.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"OpenAI image generation did not respond within {_requestTimeout.TotalSeconds:0} seconds.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(timeoutCancellation.Token);
+            throw new HttpRequestException($"OpenAI image generation failed with {(int)response.StatusCode} ({response.StatusCode}): {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<ImageGenerationResponse>(cancellationToken: timeoutCancellation.Token)
+            ?? throw new InvalidOperationException("OpenAI image generation response was empty.");
+        var image = payload.Data.FirstOrDefault()
+            ?? throw new InvalidOperationException("OpenAI image generation response did not include an image.");
+
+        if (!string.IsNullOrWhiteSpace(image.B64Json))
+        {
+            return Convert.FromBase64String(image.B64Json);
+        }
+
+        if (!string.IsNullOrWhiteSpace(image.Url))
+        {
+            return await _httpClient.GetByteArrayAsync(image.Url, timeoutCancellation.Token);
+        }
+
+        throw new InvalidOperationException("OpenAI image generation response did not include image data.");
+    }
+
     private sealed record ChatResponse(IReadOnlyList<Choice> Choices);
     private sealed record Choice(ChatMessage Message);
     private sealed record ChatMessage(string Content);
     private sealed record ModerationResponse(IReadOnlyList<ModerationResult> Results);
     private sealed record ModerationResult(bool Flagged);
+    private sealed class ImageGenerationResponse
+    {
+        [JsonPropertyName("data")]
+        public IReadOnlyList<ImageData> Data { get; init; } = [];
+    }
+
+    private sealed class ImageData
+    {
+        [JsonPropertyName("url")]
+        public string? Url { get; init; }
+
+        [JsonPropertyName("b64_json")]
+        public string? B64Json { get; init; }
+    }
 }

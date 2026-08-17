@@ -38,6 +38,13 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
   - Returns the owned session and its ordered full turn DTOs for the reader workspace.
   - Includes artwork status and signed image URLs without requiring one detail request per turn.
   - Returns `404` if not found or not owned by the authenticated user.
+- `POST /api/sessions/{id}/pause`
+  - Pauses an active episode and returns the updated session.
+- `POST /api/sessions/{id}/resume`
+  - Resumes a paused episode and returns the updated session.
+- `POST /api/sessions/{id}/conclusion`
+  - Generates a final turn for an active episode.
+  - Requires the structured provider result to confirm `isEpisodeComplete`; the session then transitions to `completed`.
 - `PATCH /api/sessions/{id}`
   - Updates mutable session state.
 - `DELETE /api/sessions/{id}`
@@ -46,28 +53,31 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 ## Scene endpoints (`/api/sessions/{id}/scenes`)
 
 - `GET /api/sessions/{id}/scenes`
-  - Lists scenes for session.
+  - Lists the active story path for the owned session in sequence order, excluding superseded revisions.
 - `POST /api/sessions/{id}/scenes`
   - Continues an existing story from a user action and triggers generation workflow.
   - Returns structured narrative fields: summary, location, active conflict, schema-versioned state object, 2–3 suggested actions, story beat, and episode-completion status.
   - Returns `201 Created`.
 - `GET /api/sessions/{id}/scenes/{sceneId}`
-  - Retrieves scene detail.
+  - Retrieves active scene detail.
+- `POST /api/sessions/{id}/scenes/{sceneId}/revisions`
+  - Revises the latest active turn using a replacement user contribution.
+  - Preserves the original turn as superseded and returns the active replacement turn.
+  - Returns `404` for a non-active or unowned turn and rejects any active turn that is not the latest.
 
 Scene detail and list responses include an `artworkStatus` value: `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned`. Opening, major, climax, and conclusion beats request artwork; standard beats do not.
+
+- `POST /api/sessions/{id}/scenes/{sceneId}/artwork`
+  - Queues an optional artwork request for an owned active scene.
+  - Allows a new request after the prior job has completed, failed, or been poisoned, preserving each job as history.
+  - Rejects a duplicate request while the scene already has queued or processing artwork.
 
 ### Remaining interactive-turn contract (planned)
 
 The existing scene routes remain the compatibility surface while `Scene` evolves into an interactive story turn. These behaviors and routes are not yet implemented:
 
-- `GET /api/sessions/{id}/scenes`
-  - Returns the active story path in sequence order by default, excluding superseded revisions.
 - `POST /api/sessions/{id}/scenes`
   - Add an optional request to conclude the episode and optimistic conflict handling. The latest accepted turn is already supplied as continuity context.
-- `POST /api/sessions/{id}/scenes/{sceneId}/revisions`
-  - Revises the latest active turn using a replacement user contribution.
-  - Preserves the prior version as superseded and returns the replacement turn.
-  - Rejects revisions of a turn that is not the latest active turn during the MVP.
 - `GET /api/sessions/{id}/scenes/{sceneId}/revisions`
   - Returns revision history for an owned turn when revision-history UI is implemented.
 

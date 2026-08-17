@@ -101,6 +101,37 @@
               </header>
               <p class="narrative">{{ turn.narrativeText }}</p>
 
+              <div v-if="turn.id === workspaceStore.latestTurn?.id" class="turn-tools">
+                <button
+                  class="icon-button revision-button"
+                  type="button"
+                  :disabled="workspaceStore.generating"
+                  title="Revise this latest turn"
+                  @click="openRevision(turn.choiceText)"
+                >
+                  <Pencil :size="16" />
+                </button>
+                <span>Revise latest turn</span>
+              </div>
+
+              <form v-if="revisionOpen && turn.id === workspaceStore.latestTurn?.id" class="revision-panel" @submit.prevent="submitRevision(turn.id)">
+                <label :for="`revision-${turn.id}`">Replace your previous move</label>
+                <textarea
+                  :id="`revision-${turn.id}`"
+                  v-model="revisionText"
+                  rows="2"
+                  :disabled="workspaceStore.generating"
+                ></textarea>
+                <p>The current version will remain in history and this replacement becomes the active path.</p>
+                <div class="revision-actions">
+                  <button type="button" :disabled="workspaceStore.generating" @click="closeRevision">Cancel</button>
+                  <button type="submit" :disabled="!revisionText.trim() || workspaceStore.generating">
+                    <LoaderCircle v-if="workspaceStore.generating" class="spin" :size="16" />
+                    <span v-else>Replace turn</span>
+                  </button>
+                </div>
+              </form>
+
               <figure v-if="turn.imageUrl" class="scene-artwork">
                 <img :src="turn.imageUrl" :alt="`Artwork for scene ${turn.sequenceNumber}`" />
                 <figcaption>{{ turn.sceneSummary }}</figcaption>
@@ -111,15 +142,26 @@
               <div v-else-if="turn.artworkStatus === 'failed' || turn.artworkStatus === 'poisoned'" class="artwork-status artwork-status--error">
                 <ImageOff :size="18" /> Artwork unavailable
               </div>
+              <div class="artwork-actions">
+                <button
+                  type="button"
+                  :disabled="isArtworkPending(turn.artworkStatus) || workspaceStore.artworkSceneId === turn.id"
+                  @click="requestArtwork(turn.id)"
+                >
+                  <LoaderCircle v-if="workspaceStore.artworkSceneId === turn.id" class="spin" :size="16" />
+                  <ImagePlus v-else :size="16" />
+                  <span>{{ turn.imageUrl ? "Generate another image" : "Generate image" }}</span>
+                </button>
+              </div>
             </article>
           </template>
 
-          <div ref="timelineEnd" class="timeline-end" aria-hidden="true"></div>
+          <div ref="timelineEnd" class="timeline-end" tabindex="-1"></div>
         </div>
       </div>
 
       <footer v-if="workspaceStore.workspace" class="composer-zone">
-        <div v-if="latestSuggestions.length" class="suggestion-row" aria-label="Suggested actions">
+        <div v-if="isEpisodeActive && latestSuggestions.length" class="suggestion-row" aria-label="Suggested actions">
           <button
             v-for="suggestion in latestSuggestions"
             :key="suggestion"
@@ -130,7 +172,7 @@
             {{ suggestion }}
           </button>
         </div>
-        <form class="composer" @submit.prevent="submitAction(actionText)">
+        <form v-if="isEpisodeActive" class="composer" @submit.prevent="submitAction(actionText)">
           <textarea
             v-model="actionText"
             aria-label="What does your hero do?"
@@ -144,6 +186,23 @@
             <Send v-else :size="19" />
           </button>
         </form>
+        <div v-else class="episode-status" :class="`episode-status--${episodeStatus}`">
+          <PauseCircle v-if="isEpisodePaused" :size="19" />
+          <CircleCheck v-else :size="19" />
+          <span v-if="isEpisodePaused">This episode is paused.</span>
+          <span v-else>This episode is complete.</span>
+          <button v-if="isEpisodePaused" type="button" :disabled="workspaceStore.transitioning" @click="resumeEpisode">
+            <Play :size="16" /> Resume episode
+          </button>
+        </div>
+        <div v-if="isEpisodeActive" class="episode-actions">
+          <button type="button" :disabled="workspaceStore.generating || workspaceStore.transitioning" @click="pauseEpisode">
+            <Pause :size="15" /> Pause episode
+          </button>
+          <button type="button" :disabled="workspaceStore.generating || workspaceStore.transitioning" @click="concludeEpisode">
+            <Flag :size="15" /> Conclude episode
+          </button>
+        </div>
         <p v-if="generationError" class="composer-error" role="alert">{{ generationError }}</p>
         <p class="composer-note">Your choices shape the story. Suggestions are optional.</p>
       </footer>
@@ -158,13 +217,20 @@ import { useRoute, useRouter } from "vue-router";
 import {
   BookOpen,
   CircleAlert,
+  CircleCheck,
+  Flag,
   Image as ImageIcon,
   ImageOff,
+  ImagePlus,
   Library,
   LoaderCircle,
   LogOut,
   MapPin,
   Menu,
+  Pause,
+  PauseCircle,
+  Pencil,
+  Play,
   Plus,
   Send,
   Shield,
@@ -183,12 +249,17 @@ const sessionStore = useSessionStore();
 const workspaceStore = useWorkspaceStore();
 const drawerOpen = ref(false);
 const actionText = ref("");
+const revisionText = ref("");
+const revisionOpen = ref(false);
 const loadError = ref("");
 const generationError = ref("");
 const timelineEnd = ref<HTMLElement | null>(null);
 const timelineElement = ref<HTMLElement | null>(null);
 const sessionId = computed(() => route.params.sessionId as string);
 const latestSuggestions = computed(() => workspaceStore.latestTurn?.suggestedActions ?? []);
+const episodeStatus = computed(() => workspaceStore.workspace?.session.status ?? "active");
+const isEpisodeActive = computed(() => episodeStatus.value === "active");
+const isEpisodePaused = computed(() => episodeStatus.value === "paused");
 const pollIntervalMs = Number(import.meta.env.VITE_IMAGE_POLL_INTERVAL_MS ?? 3000);
 let artworkTimer: number | undefined;
 
@@ -198,6 +269,7 @@ const errorMessage = (error: unknown, fallback: string) =>
 const scrollToLatest = async () => {
   await nextTick();
   timelineEnd.value?.scrollIntoView({ behavior: "smooth", block: "end" });
+  timelineEnd.value?.focus({ preventScroll: true });
 };
 
 const configureArtworkPolling = () => {
@@ -244,6 +316,73 @@ const submitAction = async (value: string) => {
   } catch (error) {
     actionText.value = choice;
     generationError.value = errorMessage(error, "The story could not continue. Please try again.");
+  }
+};
+
+const openRevision = (choiceText: string) => {
+  revisionText.value = choiceText;
+  revisionOpen.value = true;
+  generationError.value = "";
+};
+
+const closeRevision = () => {
+  revisionOpen.value = false;
+  revisionText.value = "";
+};
+
+const submitRevision = async (sceneId: string) => {
+  const choice = revisionText.value.trim();
+  if (!choice || workspaceStore.generating) return;
+  generationError.value = "";
+  try {
+    await workspaceStore.reviseLatestTurn(sessionId.value, sceneId, choice);
+    closeRevision();
+    configureArtworkPolling();
+    await scrollToLatest();
+  } catch (error) {
+    generationError.value = errorMessage(error, "The turn could not be revised. Please try again.");
+  }
+};
+
+const pauseEpisode = async () => {
+  generationError.value = "";
+  try {
+    await workspaceStore.pauseEpisode(sessionId.value);
+    await sessionStore.loadSessions();
+  } catch (error) {
+    generationError.value = errorMessage(error, "The episode could not be paused. Please try again.");
+  }
+};
+
+const resumeEpisode = async () => {
+  generationError.value = "";
+  try {
+    await workspaceStore.resumeEpisode(sessionId.value);
+    await sessionStore.loadSessions();
+  } catch (error) {
+    generationError.value = errorMessage(error, "The episode could not be resumed. Please try again.");
+  }
+};
+
+const concludeEpisode = async () => {
+  generationError.value = "";
+  try {
+    await workspaceStore.concludeEpisode(sessionId.value);
+    configureArtworkPolling();
+    await sessionStore.loadSessions();
+    await scrollToLatest();
+  } catch (error) {
+    generationError.value = errorMessage(error, "The episode could not be concluded. Please try again.");
+  }
+};
+
+const requestArtwork = async (sceneId: string) => {
+  generationError.value = "";
+  try {
+    await workspaceStore.requestArtwork(sessionId.value, sceneId);
+    configureArtworkPolling();
+  } catch (error) {
+    generationError.value = errorMessage(error, "Artwork could not be requested. Please try again.");
   }
 };
 
@@ -334,6 +473,17 @@ onBeforeUnmount(() => { if (artworkTimer !== undefined) window.clearInterval(art
 .turn-header { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; color: #7b8987; font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .turn-header span { display: inline-flex; align-items: center; gap: 5px; }
 .narrative { margin: 0; white-space: pre-wrap; font-family: Charter, "Iowan Old Style", Georgia, serif; font-size: clamp(18px, 2.1vw, 21px); line-height: 1.78; color: #263638; }
+.turn-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 18px; color: #677777; font-size: 11px; font-weight: 700; }
+.revision-button { width: 32px; height: 32px; border-color: #a8bbb6; background: #eef2ec; color: #285c58; }
+.revision-button:disabled { opacity: 0.55; cursor: default; }
+.revision-panel { display: grid; gap: 9px; margin-top: 14px; padding: 15px; border: 1px solid #a8bbb6; border-left: 4px solid #23847b; border-radius: 8px; background: #eef2ec; }
+.revision-panel label { color: #285c58; font-size: 12px; font-weight: 800; }
+.revision-panel textarea { width: 100%; resize: vertical; border: 1px solid #9eadab; border-radius: 6px; padding: 9px; font: 14px/1.45 "Avenir Next", "Century Gothic", sans-serif; color: #1d2d30; }
+.revision-panel p { margin: 0; color: #5c706d; font-size: 11px; line-height: 1.45; }
+.revision-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.revision-actions button { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #789490; border-radius: 6px; padding: 0 11px; background: transparent; color: #285c58; font-weight: 700; cursor: pointer; }
+.revision-actions button[type="submit"] { border-color: #1f7770; background: #1f7770; color: #fff; }
+.revision-actions button:disabled { opacity: 0.55; cursor: default; }
 .hero-action { width: min(620px, 86%); margin: 0 0 34px auto; padding: 15px 18px; background: #dce9e3; border-left: 4px solid #23847b; border-radius: 4px 8px 8px 4px; }
 .hero-action-label { display: flex; align-items: center; gap: 6px; color: #236a65; font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .hero-action p { margin: 6px 0 0; font-size: 15px; line-height: 1.5; }
@@ -342,6 +492,9 @@ onBeforeUnmount(() => { if (artworkTimer !== undefined) window.clearInterval(art
 .scene-artwork figcaption { margin-top: 8px; color: #75817f; font-size: 11px; }
 .artwork-status { display: flex; align-items: center; gap: 8px; margin-top: 24px; color: #657573; font-size: 12px; }
 .artwork-status--error { color: #a3483a; }
+.artwork-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.artwork-actions button { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #a8bbb6; border-radius: 6px; padding: 0 10px; background: #eef2ec; color: #285c58; font-size: 12px; font-weight: 700; cursor: pointer; }
+.artwork-actions button:disabled { opacity: 0.55; cursor: default; }
 .timeline-end { height: 1px; }
 .workspace-state { min-height: 60vh; display: grid; place-items: center; align-content: center; gap: 10px; color: #60716f; text-align: center; }
 .workspace-state p { margin: 0; }
@@ -358,6 +511,12 @@ onBeforeUnmount(() => { if (artworkTimer !== undefined) window.clearInterval(art
 .composer-note, .composer-error { width: min(820px, 100%); margin: 7px auto 0; font-size: 10px; text-align: center; }
 .composer-note { color: #7b8885; }
 .composer-error { color: #a3483a; }
+.episode-actions { width: min(820px, 100%); display: flex; justify-content: flex-end; gap: 8px; margin: 9px auto 0; }
+.episode-actions button, .episode-status button { min-height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #a8bbb6; border-radius: 6px; padding: 0 10px; background: #eef2ec; color: #285c58; font-size: 12px; font-weight: 700; cursor: pointer; }
+.episode-actions button:last-child { border-color: #b77a41; background: #fff4df; color: #8d5121; }
+.episode-actions button:disabled, .episode-status button:disabled { opacity: 0.55; cursor: default; }
+.episode-status { width: min(820px, 100%); min-height: 54px; display: flex; align-items: center; justify-content: center; gap: 9px; margin: 0 auto; border: 1px solid #a8bbb6; border-radius: 8px; padding: 10px 14px; background: #eef2ec; color: #285c58; font-size: 13px; font-weight: 700; }
+.episode-status--completed { border-color: #d6a94e; background: #fff4df; color: #8d5121; }
 .spin { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .drawer-scrim { display: none; }

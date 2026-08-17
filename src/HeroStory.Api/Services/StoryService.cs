@@ -34,7 +34,7 @@ public class StoryService : IStoryService
             .AsNoTracking()
             .AsSplitQuery()
             .Include(story => story.Scenes)
-                .ThenInclude(scene => scene.GenerationJob)
+                .ThenInclude(scene => scene.GenerationJobs)
             .SingleOrDefaultAsync(story => story.Id == sessionId && story.UserId == userId, cancellationToken);
         if (session is null)
         {
@@ -42,7 +42,7 @@ public class StoryService : IStoryService
         }
 
         var sessionDto = new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt);
-        var turns = session.Scenes.OrderBy(scene => scene.SequenceNumber).Select(SceneDtoMapper.ToDto).ToArray();
+        var turns = session.Scenes.Where(scene => scene.IsActive).OrderBy(scene => scene.SequenceNumber).Select(SceneDtoMapper.ToDto).ToArray();
         return new StoryWorkspaceDto(sessionDto, turns);
     }
 
@@ -83,6 +83,30 @@ public class StoryService : IStoryService
             session.Status = status;
         }
 
+        session.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt);
+    }
+
+    public async Task<SessionDto?> TransitionStatusAsync(Guid userId, Guid sessionId, SessionStatus status, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.StorySessions.SingleOrDefaultAsync(x => x.UserId == userId && x.Id == sessionId, cancellationToken);
+        if (session is null)
+        {
+            return null;
+        }
+
+        if (status == SessionStatus.Paused && session.Status != SessionStatus.Active)
+        {
+            throw new InvalidOperationException("Only an active episode can be paused.");
+        }
+
+        if (status == SessionStatus.Active && session.Status != SessionStatus.Paused)
+        {
+            throw new InvalidOperationException("Only a paused episode can be resumed.");
+        }
+
+        session.Status = status;
         session.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
         return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt);

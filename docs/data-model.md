@@ -51,7 +51,7 @@ Portrait deletion and account deletion must account for source blobs, derivative
 
 ## Supporting enums
 
-- `SessionStatus`
+- `SessionStatus` (`active`, `paused`, `completed`, `archived`, `pendingDeletion`)
 - `JobStatus`
 - `ModerationStatus`
 

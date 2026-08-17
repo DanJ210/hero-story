@@ -16,7 +16,7 @@ For deeper detail, start with [docs/application-overview.md](docs/application-ov
 
 The target experience, turn contract, revision behavior, and MVP acceptance criteria are defined in [docs/story-experience.md](docs/story-experience.md).
 
-The reader-first workspace now includes latest stories, a continuous narrative timeline, inline artwork states, suggested actions, and a persistent hero-action composer across desktop and mobile. Current delivery focus is immutable latest-turn revision and active-path history. See [docs/roadmap.md](docs/roadmap.md#current-milestone).
+The reader-first workspace now includes latest stories, a continuous narrative timeline, inline artwork states, suggested actions, a persistent hero-action composer, and latest-turn revision across desktop and mobile. Current delivery focus is revision hardening and active-path history. See [docs/roadmap.md](docs/roadmap.md#current-milestone).
 
 ## Architecture summary
 
@@ -82,7 +82,7 @@ Additional setup and troubleshooting notes are in [docs/development-guide.md](do
 2. User submits what their hero says, attempts, or chooses through `POST /api/sessions/{id}/scenes` to continue.
 3. API moderates the contribution, advances the narrative, and returns the next story turn.
 4. API validates and stores structured narrative output, including summary, location, active conflict, schema-versioned state, 2–3 optional suggested actions, story beat, and episode-completion status.
-5. The next request receives the latest accepted summary, location, conflict, schema-versioned state, and narrative passage as bounded continuity context. Artwork is queued only for opening, major, climax, and conclusion beats; standard turns report `notRequested` and are not polled. Multi-turn summary compaction, latest-turn revision, session episode transitions, and explicit artwork requests/retries remain planned.
+5. The next request receives the latest accepted summary, location, conflict, schema-versioned state, and narrative passage as bounded continuity context. Artwork is queued automatically for opening, major, climax, and conclusion beats, and readers can request artwork manually for any active scene. The API and workspace support immutable revision of the latest active turn; multi-turn summary compaction, revision history, and automatic artwork retry remain planned.
 
 ### Worker image pipeline
 

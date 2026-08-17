@@ -20,6 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(conn
 builder.Services.AddSingleton<AzureQueueClient>();
 builder.Services.AddSingleton<AzureBlobService>();
 builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+builder.Services.AddHttpClient<OpenAiClient>();
 builder.Services.AddScoped<global::HeroStory.Worker.IImageGeneratorStrategy, global::HeroStory.Worker.PlaceholderImageStrategy>();
 builder.Services.AddScoped<global::HeroStory.Worker.IImageGeneratorStrategy, global::HeroStory.Worker.DallE3Strategy>();
 builder.Services.AddHostedService<global::HeroStory.Worker.ImageGenerationWorker>();
