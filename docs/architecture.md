@@ -29,7 +29,7 @@ The current implementation validates and persists the structured generation resu
 
 - API enqueues image work only when the validated story beat qualifies for artwork under the selective image policy.
 - Worker polls queue in batches.
-- Each message resolves to a `GenerationJob`.
+- Each message resolves to a `GenerationJob`; failed jobs remain eligible for bounded queue redelivery, while completed jobs are idempotently skipped. Development queue visibility is configured above observed provider latency to prevent duplicate in-flight image generation.
 - Worker updates status transitions (`Pending -> Processing -> Completed/Failed/Poisoned`).
 - Output assets are persisted to blob storage and referenced by domain records.
 - Jobs associated only with superseded turns must not replace artwork on the active story path.

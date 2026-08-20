@@ -20,7 +20,7 @@ This roadmap reflects expected progression from current MVP scaffold to producti
 
 ### Current milestone
 
-Add automatic artwork retry and idempotent dispatch. Structured turns now include bounded older active-path summaries and state markers while preserving the latest passage in full; the next slice focuses on retrying failed artwork jobs without duplicate generation.
+Add vertical-slice coverage for automatic artwork retry. Failed artwork jobs now remain eligible for bounded queue redelivery, completed jobs are idempotently skipped, and queue visibility exceeds observed provider latency; the next slice proves retry behavior through the worker boundary.
 
 ### Completed Milestones
 
@@ -37,17 +37,17 @@ Add automatic artwork retry and idempotent dispatch. Structured turns now includ
 - [x] Allow users to request artwork manually for any active-path scene and request a new image after the prior job settles.
 - [x] Retry malformed structured-turn responses with bounded configuration and validation-attempt observability.
 - [x] Include bounded older active-path continuity summaries and state markers in generation prompts.
+- [x] Retry failed artwork jobs through bounded queue redelivery without regenerating completed jobs.
 
 ### Deferred until the workspace is usable
 
 - multi-turn summary compaction,
-- automatic artwork retry commands,
+- artwork retry evaluation coverage,
 - hero-likeness personalization.
 
 ## Near-term (MVP completion)
 
-1. Extend the implemented selective artwork policy with automatic retry commands and idempotent dispatch.
-2. Add vertical-slice tests proving explicit artwork retry.
+1. Add vertical-slice tests proving automatic artwork retry and completed-job idempotency.
 
 ## Mid-term (production readiness)
 
