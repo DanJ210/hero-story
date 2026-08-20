@@ -11,7 +11,6 @@ public class ModerationService : IModerationService
     // Superhero/sci-fi action is the product genre, so "violence" and non-threatening "harassment" are not blocking.
     private static readonly string[] DefaultBlockedCategories =
     [
-        "sexual",
         "sexual/minors",
         "hate",
         "hate/threatening",
