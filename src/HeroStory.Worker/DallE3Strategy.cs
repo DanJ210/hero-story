@@ -1,6 +1,7 @@
 using global::HeroStory.Api.Services;
 using global::HeroStory.Infrastructure.Clients;
 using global::HeroStory.Infrastructure.Data;
+using global::HeroStory.Infrastructure.Storage;
 using HeroStory.Core.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,12 +12,16 @@ public class DallE3Strategy : IImageGeneratorStrategy
     private readonly IBlobStorageService _blobStorageService;
     private readonly AppDbContext _dbContext;
     private readonly OpenAiClient _openAiClient;
+    private readonly AzureBlobService _blobService;
+    private readonly IConfiguration _configuration;
 
-    public DallE3Strategy(IBlobStorageService blobStorageService, AppDbContext dbContext, OpenAiClient openAiClient)
+    public DallE3Strategy(IBlobStorageService blobStorageService, AppDbContext dbContext, OpenAiClient openAiClient, AzureBlobService blobService, IConfiguration configuration)
     {
         _blobStorageService = blobStorageService;
         _dbContext = dbContext;
         _openAiClient = openAiClient;
+        _blobService = blobService;
+        _configuration = configuration;
     }
 
     public string Name => "dalle3";
@@ -30,7 +35,24 @@ public class DallE3Strategy : IImageGeneratorStrategy
                 .SingleAsync(x => x.Id == job.SceneId, cancellationToken);
 
             var imagePrompt = GenerateImagePrompt(scene);
-            var imageBytes = await _openAiClient.GenerateImageAsync(imagePrompt, cancellationToken);
+            byte[] imageBytes;
+            if (job.PortraitId is Guid portraitId)
+            {
+                var portrait = await _dbContext.UserPortraits.SingleOrDefaultAsync(
+                    candidate => candidate.Id == portraitId
+                        && candidate.UserId == scene.Session.UserId
+                        && candidate.DeletedAt == null
+                        && candidate.DisabledAt == null,
+                    cancellationToken)
+                    ?? throw new InvalidOperationException("The consented portrait is no longer available.");
+                var portraitsContainer = _configuration["AZURE_BLOB_PORTRAITS_CONTAINER"] ?? "hero-story-portraits";
+                await using var portraitStream = await _blobService.DownloadAsync(portraitsContainer, portrait.BlobName, cancellationToken);
+                imageBytes = await _openAiClient.GenerateImageWithReferenceAsync(imagePrompt, portraitStream, portrait.ContentType, cancellationToken);
+            }
+            else
+            {
+                imageBytes = await _openAiClient.GenerateImageAsync(imagePrompt, cancellationToken);
+            }
 
             await _dbContext.Entry(scene).ReloadAsync(cancellationToken);
             if (!scene.IsActive)

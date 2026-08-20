@@ -44,7 +44,7 @@ Generation requests should use the minimum relevant context. Structured model re
 
 Optional hero-likeness personalization is a separate privacy boundary from narrative state and generated artwork. Source portraits belong in private, ownership-scoped storage and must not be embedded in `StorySession`, `Scene`, queue payloads, logs, or public asset containers.
 
-The first likeness phase now owns consent, private portrait metadata, replacement/disablement, and deletion. Phase 2 now records an opaque portrait ID and consent timestamp on opted-in manual artwork jobs; portraits are still not read by scene generation or image workers. The remaining phase 2 work is short-lived provider-reference issuance and manual provider integration.
+The first likeness phase now owns consent, private portrait metadata, replacement/disablement, and deletion. Phase 2 records an opaque portrait ID and consent timestamp on opted-in manual artwork jobs; the worker resolves the private blob and sends it directly as multipart input to the provider's manual image-edit endpoint. Automatic likeness generation remains disabled pending provider-reference expiry, provenance, and policy evaluation.
 
 ## Security and control surfaces
 

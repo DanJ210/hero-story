@@ -46,7 +46,8 @@ Begin consent-driven hero-likeness personalization. The first phase isolates por
    - [x] Store opaque portrait ID and consent timestamp on opted-in manual artwork jobs.
    - [x] Reject likeness requests without an active consented portrait.
    - [x] Add an explicit per-scene likeness opt-in control, defaulting off.
-   - [ ] Issue short-lived provider references and integrate the portrait with manual image generation.
+   - [x] Resolve private portraits in the worker and send them directly as multipart input for manual image edits.
+   - [ ] Add provider-reference expiry/provenance policy and complete the manual likeness evaluation coverage.
 - [ ] Phase 3: optional automatic likeness artwork, disable/replace flows, deletion semantics, and end-to-end policy tests.
 
 ### Deferred until the workspace is usable

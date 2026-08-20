@@ -125,6 +125,46 @@ public class OpenAiClient
         throw new InvalidOperationException("OpenAI image generation response did not include image data.");
     }
 
+    public async Task<byte[]> GenerateImageWithReferenceAsync(string imagePrompt, Stream referenceImage, string contentType, CancellationToken cancellationToken)
+    {
+        var model = _configuration["OPENAI_IMAGE_MODEL"] ?? "gpt-image-1";
+        var size = _configuration["OPENAI_IMAGE_SIZE"] ?? "1024x1024";
+        var quality = _configuration["OPENAI_IMAGE_QUALITY"] ?? "auto";
+        using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCancellation.CancelAfter(_requestTimeout);
+        using var form = new MultipartFormDataContent();
+        form.Add(new StringContent(model), "model");
+        form.Add(new StringContent(imagePrompt), "prompt");
+        form.Add(new StringContent("1"), "n");
+        form.Add(new StringContent(size), "size");
+        form.Add(new StringContent(quality), "quality");
+        form.Add(new StringContent("png"), "output_format");
+        var imageContent = new StreamContent(referenceImage);
+        imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(imageContent, "image", "portrait");
+
+        var response = await _httpClient.PostAsync("/v1/images/edits", form, timeoutCancellation.Token);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(timeoutCancellation.Token);
+            throw new HttpRequestException($"OpenAI image edit failed with {(int)response.StatusCode} ({response.StatusCode}): {errorBody}");
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<ImageGenerationResponse>(cancellationToken: timeoutCancellation.Token)
+            ?? throw new InvalidOperationException("OpenAI image edit response was empty.");
+        var image = payload.Data.FirstOrDefault()
+            ?? throw new InvalidOperationException("OpenAI image edit response did not include an image.");
+        if (!string.IsNullOrWhiteSpace(image.B64Json))
+        {
+            return Convert.FromBase64String(image.B64Json);
+        }
+        if (!string.IsNullOrWhiteSpace(image.Url))
+        {
+            return await _httpClient.GetByteArrayAsync(image.Url, timeoutCancellation.Token);
+        }
+        throw new InvalidOperationException("OpenAI image edit response did not include image data.");
+    }
+
     private sealed record ChatResponse(IReadOnlyList<Choice> Choices);
     private sealed record Choice(ChatMessage Message);
     private sealed record ChatMessage(string Content);

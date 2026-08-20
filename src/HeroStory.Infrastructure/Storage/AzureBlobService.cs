@@ -53,4 +53,15 @@ public class AzureBlobService
         var blobClient = container.GetBlobClient(blobName);
         return blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
     }
+
+    public async Task<Stream> DownloadAsync(string containerName, string blobName, CancellationToken cancellationToken)
+    {
+        var container = _blobServiceClient.GetBlobContainerClient(containerName);
+        var blobClient = container.GetBlobClient(blobName);
+        var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+        var copy = new MemoryStream();
+        await response.Value.Content.CopyToAsync(copy, cancellationToken);
+        copy.Position = 0;
+        return copy;
+    }
 }
