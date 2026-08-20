@@ -132,18 +132,19 @@ public class OpenAiClient
         var quality = _configuration["OPENAI_IMAGE_QUALITY"] ?? "auto";
         using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCancellation.CancelAfter(_requestTimeout);
-        using var form = new MultipartFormDataContent();
-        form.Add(new StringContent(model), "model");
-        form.Add(new StringContent(imagePrompt), "prompt");
-        form.Add(new StringContent("1"), "n");
-        form.Add(new StringContent(size), "size");
-        form.Add(new StringContent(quality), "quality");
-        form.Add(new StringContent("png"), "output_format");
-        var imageContent = new StreamContent(referenceImage);
-        imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
-        form.Add(imageContent, "image", "portrait");
-
-        var response = await _httpClient.PostAsync("/v1/images/edits", form, timeoutCancellation.Token);
+        using var memory = new MemoryStream();
+        await referenceImage.CopyToAsync(memory, timeoutCancellation.Token);
+        var imageDataUrl = $"data:{contentType};base64,{Convert.ToBase64String(memory.ToArray())}";
+        var response = await _httpClient.PostAsJsonAsync("/v1/images/edits", new
+        {
+            model,
+            images = new[] { new { image_url = imageDataUrl } },
+            prompt = imagePrompt,
+            n = 1,
+            size,
+            quality,
+            output_format = "png"
+        }, timeoutCancellation.Token);
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(timeoutCancellation.Token);

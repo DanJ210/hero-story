@@ -4,6 +4,8 @@ using global::HeroStory.Infrastructure.Data;
 using global::HeroStory.Infrastructure.Storage;
 using HeroStory.Core.Entities;
 using Microsoft.EntityFrameworkCore;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
 
 namespace HeroStory.Worker;
 
@@ -47,7 +49,8 @@ public class DallE3Strategy : IImageGeneratorStrategy
                     ?? throw new InvalidOperationException("The consented portrait is no longer available.");
                 var portraitsContainer = _configuration["AZURE_BLOB_PORTRAITS_CONTAINER"] ?? "hero-story-portraits";
                 await using var portraitStream = await _blobService.DownloadAsync(portraitsContainer, portrait.BlobName, cancellationToken);
-                imageBytes = await _openAiClient.GenerateImageWithReferenceAsync(imagePrompt, portraitStream, portrait.ContentType, cancellationToken);
+                await using var normalizedPortrait = await NormalizePortraitAsync(portraitStream, cancellationToken);
+                imageBytes = await _openAiClient.GenerateImageWithReferenceAsync(imagePrompt, normalizedPortrait, "image/jpeg", cancellationToken);
             }
             else
             {
@@ -109,6 +112,15 @@ Scene Summary: {summary}
 Style: Book cover quality, cinematic lighting, rich colors, detailed environment, fantasy artwork. Show {heroName} as the central figure in the scene, engaged in the action described. Make it feel like a moment from an epic fantasy novel.
 
 Do not include text, names, or dialogue overlays.";
+    }
+
+    private static async Task<MemoryStream> NormalizePortraitAsync(Stream source, CancellationToken cancellationToken)
+    {
+        using var image = await Image.LoadAsync(source, cancellationToken);
+        var normalized = new MemoryStream();
+        await image.SaveAsJpegAsync(normalized, new JpegEncoder { Quality = 92 }, cancellationToken);
+        normalized.Position = 0;
+        return normalized;
     }
 
 }
