@@ -44,6 +44,8 @@ With `DB_APPLY_MIGRATIONS=true`, API startup applies the committed EF Core migra
 
 Creating a story calls OpenAI moderation and chat generation immediately to produce the opening passage. The configured API key must have access to `omni-moderation-latest`, the configured text model, and available quota. Provider rate-limit or quota failures return `503 Service Unavailable`, and the incomplete session is removed rather than left in the user's story list.
 
+Moderation is category-aware rather than using the provider's overall `flagged` result. Superhero and sci-fi action routinely trips the `violence` category, so `violence` and non-threatening `harassment` do not block; `sexual`, `sexual/minors`, `hate`, `hate/threatening`, `harassment/threatening`, `self-harm*`, `illicit*`, and `violence/graphic` do. A flagged response with no categories blocks as `unspecified`. Override the blocking set with the comma-separated `MODERATION_BLOCKED_CATEGORIES` setting. Blocked input is rejected; blocked output is replaced with a short safe passage and stored as `Sanitized` with the matching categories in `ModerationDetail`.
+
 ## Development authentication
 
 The Development profile enables a temporary authentication shortcut for exercising authenticated application flows without registering or entering a password:

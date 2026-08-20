@@ -54,14 +54,24 @@ public class OpenAiClient
             ?? throw new InvalidOperationException("OpenAI chat response did not include a message.");
     }
 
-    public async Task<bool> IsFlaggedAsync(string input, CancellationToken cancellationToken)
+    public const string UnspecifiedModerationCategory = "unspecified";
+
+    public virtual async Task<IReadOnlyList<string>> GetFlaggedCategoriesAsync(string input, CancellationToken cancellationToken)
     {
         var model = _configuration["OPENAI_MODERATION_MODEL"] ?? "omni-moderation-latest";
         var response = await _httpClient.PostAsJsonAsync("/v1/moderations", new { model, input }, cancellationToken);
         response.EnsureSuccessStatusCode();
         var payload = await response.Content.ReadFromJsonAsync<ModerationResponse>(cancellationToken: cancellationToken)
             ?? throw new InvalidOperationException("OpenAI moderation response was empty.");
-        return payload.Results.FirstOrDefault()?.Flagged ?? false;
+        var result = payload.Results.FirstOrDefault();
+        if (result is null || !result.Flagged)
+        {
+            return [];
+        }
+
+        var flagged = result.Categories?.Where(category => category.Value).Select(category => category.Key).ToArray() ?? [];
+        // A flagged result without categories must still block.
+        return flagged.Length == 0 ? [UnspecifiedModerationCategory] : flagged;
     }
 
     public async Task<byte[]> GenerateImageAsync(string imagePrompt, CancellationToken cancellationToken)
@@ -119,7 +129,7 @@ public class OpenAiClient
     private sealed record Choice(ChatMessage Message);
     private sealed record ChatMessage(string Content);
     private sealed record ModerationResponse(IReadOnlyList<ModerationResult> Results);
-    private sealed record ModerationResult(bool Flagged);
+    private sealed record ModerationResult(bool Flagged, IReadOnlyDictionary<string, bool>? Categories);
     private sealed class ImageGenerationResponse
     {
         [JsonPropertyName("data")]

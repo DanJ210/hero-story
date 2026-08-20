@@ -7,7 +7,7 @@ namespace HeroStory.UnitTests.Services;
 public class OpenAiClientTests
 {
     [Fact]
-    public async Task IsFlaggedAsync_UsesCurrentDefaultModerationModel()
+    public async Task GetFlaggedCategoriesAsync_UsesCurrentDefaultModerationModel()
     {
         string? requestBody = null;
         var handler = new StubHttpMessageHandler(async request =>
@@ -21,10 +21,38 @@ public class OpenAiClientTests
         var configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
         var client = new OpenAiClient(new HttpClient(handler), configuration);
 
-        var flagged = await client.IsFlaggedAsync("safe input", CancellationToken.None);
+        var flagged = await client.GetFlaggedCategoriesAsync("safe input", CancellationToken.None);
 
-        Assert.False(flagged);
+        Assert.Empty(flagged);
         Assert.Contains("omni-moderation-latest", requestBody);
+    }
+
+    [Fact]
+    public async Task GetFlaggedCategoriesAsync_ReturnsOnlyTrueCategories()
+    {
+        var handler = new StubHttpMessageHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{\"results\":[{\"flagged\":true,\"categories\":{\"violence\":true,\"sexual\":false}}]}")
+        }));
+        var client = new OpenAiClient(new HttpClient(handler), new ConfigurationBuilder().AddInMemoryCollection().Build());
+
+        var flagged = await client.GetFlaggedCategoriesAsync("a battle scene", CancellationToken.None);
+
+        Assert.Equal(["violence"], flagged);
+    }
+
+    [Fact]
+    public async Task GetFlaggedCategoriesAsync_TreatsFlaggedWithoutCategoriesAsBlocking()
+    {
+        var handler = new StubHttpMessageHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{\"results\":[{\"flagged\":true}]}")
+        }));
+        var client = new OpenAiClient(new HttpClient(handler), new ConfigurationBuilder().AddInMemoryCollection().Build());
+
+        var flagged = await client.GetFlaggedCategoriesAsync("unknown", CancellationToken.None);
+
+        Assert.Equal([OpenAiClient.UnspecifiedModerationCategory], flagged);
     }
 
     private sealed class StubHttpMessageHandler : HttpMessageHandler
