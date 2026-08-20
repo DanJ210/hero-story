@@ -200,8 +200,35 @@ public class SceneServiceTests
         Assert.Contains("LATEST_OWNED_STATE", capturedPrompt);
         Assert.Contains("Latest accepted scene summary", capturedPrompt);
         Assert.Contains("Previous narrative passage", capturedPrompt);
-        Assert.DoesNotContain("EARLIER_STATE", capturedPrompt);
+        Assert.Contains("EARLIER_STATE", capturedPrompt);
         Assert.DoesNotContain("OTHER_USER_STATE", capturedPrompt);
+    }
+
+    [Fact]
+    public async Task CreateSceneAsync_BoundsOlderContinuityContext()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Bounded continuity");
+        for (var sequenceNumber = 1; sequenceNumber <= 30; sequenceNumber++)
+        {
+            var scene = CreatePreviousScene(session.Id, sequenceNumber, new string('S', 5000) + sequenceNumber);
+            session.Scenes.Add(scene);
+        }
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var capturedPrompt = string.Empty;
+        var text = new Mock<IOpenAiTextService>();
+        text.Setup(service => service.GenerateTurnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((prompt, _) => capturedPrompt = prompt)
+            .ReturnsAsync(CreateGeneratedTurn());
+        var service = new SceneService(dbContext, CreateApprovedModeration().Object, text.Object, CreateQueue().Object);
+
+        await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue"), CancellationToken.None);
+
+        Assert.True(capturedPrompt.Length < 20000);
+        Assert.Contains("Latest accepted scene summary", capturedPrompt);
     }
 
     [Fact]

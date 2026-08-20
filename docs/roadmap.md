@@ -20,7 +20,7 @@ This roadmap reflects expected progression from current MVP scaffold to producti
 
 ### Current milestone
 
-Expand bounded multi-turn continuity. Structured-turn validation now retries malformed provider responses with configurable limits, corrective retry instructions, and structured attempt logging; the next slice compacts older context while preserving story facts and unresolved threads.
+Add automatic artwork retry and idempotent dispatch. Structured turns now include bounded older active-path summaries and state markers while preserving the latest passage in full; the next slice focuses on retrying failed artwork jobs without duplicate generation.
 
 ### Completed Milestones
 
@@ -36,6 +36,7 @@ Expand bounded multi-turn continuity. Structured-turn validation now retries mal
 - [x] Make the workspace status-aware by disabling continuation for paused or completed episodes.
 - [x] Allow users to request artwork manually for any active-path scene and request a new image after the prior job settles.
 - [x] Retry malformed structured-turn responses with bounded configuration and validation-attempt observability.
+- [x] Include bounded older active-path continuity summaries and state markers in generation prompts.
 
 ### Deferred until the workspace is usable
 
@@ -45,12 +46,8 @@ Expand bounded multi-turn continuity. Structured-turn validation now retries mal
 
 ## Near-term (MVP completion)
 
-1. Expand the implemented latest-turn continuity prompting:
-   - compact relevant summaries across older turns,
-   - measure and cap the complete prompt budget,
-   - add continuity regression evaluations for facts, relationships, and unresolved threads.
-2. Extend the implemented selective artwork policy with automatic retry commands and idempotent dispatch.
-3. Add vertical-slice tests proving multi-turn continuity and explicit artwork retry.
+1. Extend the implemented selective artwork policy with automatic retry commands and idempotent dispatch.
+2. Add vertical-slice tests proving explicit artwork retry.
 
 ## Mid-term (production readiness)
 

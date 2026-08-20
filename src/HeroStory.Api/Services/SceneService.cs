@@ -55,11 +55,12 @@ public class SceneService : ISceneService
         var session = await _dbContext.StorySessions.SingleOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken)
             ?? throw new KeyNotFoundException("Session not found.");
         EnsureSessionIsActive(session);
-        var latestScene = await _dbContext.Scenes
+        var activeScenes = await _dbContext.Scenes
             .AsNoTracking()
             .Where(scene => scene.SessionId == sessionId && scene.IsActive)
-            .OrderByDescending(scene => scene.SequenceNumber)
-            .FirstOrDefaultAsync(cancellationToken);
+            .OrderBy(scene => scene.SequenceNumber)
+            .ToListAsync(cancellationToken);
+        var latestScene = activeScenes.LastOrDefault();
 
         return await CreateSceneCoreAsync(
             session,
@@ -70,6 +71,7 @@ public class SceneService : ISceneService
             latestScene?.Id,
             null,
             null,
+            activeScenes,
             false,
             cancellationToken);
     }
@@ -86,7 +88,7 @@ public class SceneService : ISceneService
         }
 
         var moderationInput = $"{session.Title}\n{session.Genre}\n{session.HeroArchetype}\n{session.HeroName}";
-        return await CreateSceneCoreAsync(session, null, "The story begins.", moderationInput, 1, null, null, null, false, cancellationToken);
+        return await CreateSceneCoreAsync(session, null, "The story begins.", moderationInput, 1, null, null, null, [], false, cancellationToken);
     }
 
     public async Task<SceneDto> ConcludeEpisodeAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
@@ -94,11 +96,12 @@ public class SceneService : ISceneService
         var session = await _dbContext.StorySessions.SingleOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken)
             ?? throw new KeyNotFoundException("Session not found.");
         EnsureSessionIsActive(session);
-        var latestScene = await _dbContext.Scenes
+        var activeScenes = await _dbContext.Scenes
             .AsNoTracking()
             .Where(scene => scene.SessionId == sessionId && scene.IsActive)
-            .OrderByDescending(scene => scene.SequenceNumber)
-            .FirstOrDefaultAsync(cancellationToken)
+            .OrderBy(scene => scene.SequenceNumber)
+            .ToListAsync(cancellationToken);
+        var latestScene = activeScenes.LastOrDefault()
             ?? throw new InvalidOperationException("An episode needs an opening turn before it can conclude.");
 
         const string conclusionAction = "Bring this episode to a definitive conclusion, resolving the active conflict and showing the consequences of the hero's choices.";
@@ -111,6 +114,7 @@ public class SceneService : ISceneService
             latestScene.Id,
             null,
             null,
+            activeScenes,
             true,
             cancellationToken);
     }
@@ -124,10 +128,11 @@ public class SceneService : ISceneService
             scene => scene.Id == sceneId && scene.SessionId == sessionId && scene.IsActive,
             cancellationToken)
             ?? throw new KeyNotFoundException("Active scene not found.");
-        var latestScene = await _dbContext.Scenes
+        var activeScenes = await _dbContext.Scenes
             .Where(scene => scene.SessionId == sessionId && scene.IsActive)
-            .OrderByDescending(scene => scene.SequenceNumber)
-            .FirstAsync(cancellationToken);
+            .OrderBy(scene => scene.SequenceNumber)
+            .ToListAsync(cancellationToken);
+        var latestScene = activeScenes.Last();
         if (latestScene.Id != target.Id)
         {
             throw new InvalidOperationException("Only the latest active scene can be revised.");
@@ -145,6 +150,7 @@ public class SceneService : ISceneService
             target.ParentSceneId,
             target.Id,
             target,
+            activeScenes,
             false,
             cancellationToken);
         return replacement;
@@ -159,6 +165,7 @@ public class SceneService : ISceneService
         Guid? parentSceneId,
         Guid? revisedFromSceneId,
         Scene? supersededScene,
+        IReadOnlyList<Scene> activeScenes,
         bool requireEpisodeComplete,
         CancellationToken cancellationToken)
     {
@@ -173,7 +180,7 @@ public class SceneService : ISceneService
             throw new InvalidOperationException(moderation.Detail ?? "Scene input was rejected.");
         }
 
-        var prompt = BuildPrompt(session, continuityScene, choiceText);
+        var prompt = BuildPrompt(session, continuityScene, activeScenes, choiceText);
         var generatedTurn = await _openAiTextService.GenerateTurnAsync(prompt, cancellationToken);
         var outputModeration = await _moderationService.ModerateOutputAsync(generatedTurn.NarrativeText, cancellationToken);
         if (requireEpisodeComplete && !generatedTurn.IsEpisodeComplete)
@@ -310,17 +317,11 @@ public class SceneService : ISceneService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private static string BuildPrompt(StorySession session, Scene? latestScene, string choiceText)
+    private static string BuildPrompt(StorySession session, Scene? latestScene, IReadOnlyList<Scene> activeScenes, string choiceText)
     {
         var continuityContext = latestScene is null
             ? "This is the opening turn; no prior story state exists. Establish the initial situation without inventing prior events."
-            : $$"""
-                Latest accepted scene summary: {{latestScene.SceneSummary}}
-                Current location: {{latestScene.Location}}
-                Current active conflict: {{latestScene.ActiveConflict}}
-                Current story state (schema version {{latestScene.StoryStateSchemaVersion}}): {{ValidateAndNormalizeStoryState(latestScene.StoryStateJson, latestScene.StoryStateSchemaVersion)}}
-                Previous narrative passage: {{latestScene.NarrativeText}}
-                """;
+            : BuildContinuityContext(activeScenes, latestScene);
 
         return $$"""
             Continue an interactive superhero story in which the user is the protagonist.
@@ -353,6 +354,27 @@ public class SceneService : ISceneService
               "isEpisodeComplete": false
             }
             """;
+    }
+
+    private static string BuildContinuityContext(IReadOnlyList<Scene> activeScenes, Scene latestScene)
+    {
+        const int maximumContextCharacters = 12000;
+        var olderScenes = activeScenes
+            .Where(scene => scene.SequenceNumber < latestScene.SequenceNumber)
+            .OrderByDescending(scene => scene.SequenceNumber)
+            .Select(scene => $"Scene {scene.SequenceNumber} summary: {scene.SceneSummary}\nLocation: {scene.Location}\nConflict: {scene.ActiveConflict}\nState: {ValidateAndNormalizeStoryState(scene.StoryStateJson, scene.StoryStateSchemaVersion)}")
+            .ToList();
+        var olderContext = string.Join("\n\n", olderScenes);
+        var latestContext = $"Latest accepted scene summary: {latestScene.SceneSummary}\nCurrent location: {latestScene.Location}\nCurrent active conflict: {latestScene.ActiveConflict}\nCurrent story state (schema version {latestScene.StoryStateSchemaVersion}): {ValidateAndNormalizeStoryState(latestScene.StoryStateJson, latestScene.StoryStateSchemaVersion)}\nPrevious narrative passage: {latestScene.NarrativeText}";
+        var availableOlderCharacters = Math.Max(0, maximumContextCharacters - latestContext.Length);
+        if (olderContext.Length > availableOlderCharacters)
+        {
+            olderContext = olderContext[..availableOlderCharacters];
+        }
+
+        return string.IsNullOrWhiteSpace(olderContext)
+            ? latestContext
+            : $"Earlier active-path continuity:\n{olderContext}\n\n{latestContext}";
     }
 
     private static bool RequestsArtwork(StoryBeat storyBeat)
