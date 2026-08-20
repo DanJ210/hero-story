@@ -9,3 +9,4 @@ export interface SceneDto { id: string; sessionId: string; sequenceNumber: numbe
 export interface SceneListDto { id: string; sequenceNumber: number; choiceText: string; artworkStatus: ArtworkStatus; imageUrl: string | null; moderationStatus: string; updatedAt: string; }
 export interface CreateStorySessionResponse { session: SessionDto; openingScene: SceneDto; }
 export interface StoryWorkspaceDto { session: SessionDto; turns: SceneDto[]; }
+export interface PortraitDto { id: string; contentType: string; contentLength: number; consentGrantedAt: string; createdAt: string; }

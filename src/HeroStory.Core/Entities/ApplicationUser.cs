@@ -10,4 +10,5 @@ public class ApplicationUser : IdentityUser<Guid>
     public bool IsDeleted { get; set; } = false;
     public ICollection<StorySession> Sessions { get; set; } = [];
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
+    public ICollection<UserPortrait> Portraits { get; set; } = [];
 }

@@ -17,6 +17,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
     public DbSet<GenerationJob> GenerationJobs => Set<GenerationJob>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<DeletionAuditLog> DeletionAuditLogs => Set<DeletionAuditLog>();
+    public DbSet<UserPortrait> UserPortraits => Set<UserPortrait>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

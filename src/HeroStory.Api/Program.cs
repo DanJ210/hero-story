@@ -140,6 +140,7 @@ builder.Services.AddScoped<ISceneService, SceneService>();
 builder.Services.AddScoped<IModerationService, ModerationService>();
 builder.Services.AddScoped<IOpenAiTextService, OpenAiTextService>();
 builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+builder.Services.AddScoped<IUserPortraitService, UserPortraitService>();
 
 var app = builder.Build();
 

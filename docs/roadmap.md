@@ -20,7 +20,7 @@ This roadmap reflects expected progression from current MVP scaffold to producti
 
 ### Current milestone
 
-Add vertical-slice coverage for automatic artwork retry. Failed artwork jobs now remain eligible for bounded queue redelivery, completed jobs are idempotently skipped, and queue visibility exceeds observed provider latency; the next slice proves retry behavior through the worker boundary.
+Begin consent-driven hero-likeness personalization. The first phase isolates portrait storage and consent from story generation; no portrait is used by the worker or provider until the privacy foundation is complete.
 
 ### Completed Milestones
 
@@ -38,6 +38,12 @@ Add vertical-slice coverage for automatic artwork retry. Failed artwork jobs now
 - [x] Retry malformed structured-turn responses with bounded configuration and validation-attempt observability.
 - [x] Include bounded older active-path continuity summaries and state markers in generation prompts.
 - [x] Retry failed artwork jobs through bounded queue redelivery without regenerating completed jobs.
+
+### Hero-likeness phases
+
+- [x] Phase 1: private portrait metadata, consent, ownership-scoped upload/delete, and retention state.
+- [ ] Phase 2: portrait-version provenance and short-lived provider-reference issuance for manual artwork only.
+- [ ] Phase 3: optional automatic likeness artwork, disable/replace flows, deletion semantics, and end-to-end policy tests.
 
 ### Deferred until the workspace is usable
 
