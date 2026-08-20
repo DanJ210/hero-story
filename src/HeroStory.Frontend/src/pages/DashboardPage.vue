@@ -14,6 +14,10 @@
     <p v-if="creationError" role="alert">{{ creationError }}</p>
     <section class="portrait-panel" aria-labelledby="portrait-title">
       <h2 id="portrait-title">Hero portrait</h2>
+      <div v-if="portrait" class="portrait-preview">
+        <img :src="portrait.thumbnailUrl" alt="Your current private hero portrait" />
+        <span>Current portrait</span>
+      </div>
       <p>Your portrait stays private. It will not be used in artwork until you explicitly enable likeness generation.</p>
       <input type="file" accept="image/jpeg,image/png,image/webp" @change="selectPortrait" />
       <label><input v-model="portraitConsent" type="checkbox" /> I own or am authorized to use this image and consent to private storage.</label>
@@ -37,6 +41,7 @@ import { onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
 import { useSessionStore } from "../stores/sessionStore";
+import type { PortraitDto } from "../types/api";
 import * as authApi from "../api/authApi";
 const title = import.meta.env.VITE_APP_TITLE ?? "Hero Story";
 const router = useRouter();
@@ -47,6 +52,7 @@ const creationError = ref("");
 const portraitFile = ref<File | null>(null);
 const portraitConsent = ref(false);
 const portraitUploaded = ref(false);
+const portrait = ref<PortraitDto | null>(null);
 const portraitBusy = ref(false);
 const portraitError = ref("");
 const selectPortrait = (event: Event) => { portraitFile.value = (event.target as HTMLInputElement).files?.[0] ?? null; };
@@ -54,17 +60,21 @@ const uploadPortrait = async () => {
   if (!portraitFile.value || !portraitConsent.value) return;
   portraitBusy.value = true;
   portraitError.value = "";
-  try { await authApi.uploadPortrait(portraitFile.value, portraitConsent.value); portraitUploaded.value = true; }
+  try { portrait.value = await authApi.uploadPortrait(portraitFile.value, portraitConsent.value); portraitUploaded.value = true; }
   catch (error) { portraitError.value = axios.isAxiosError(error) && typeof error.response?.data?.error === "string" ? error.response.data.error : "The portrait could not be uploaded."; }
   finally { portraitBusy.value = false; }
 };
 const removePortrait = async () => {
   portraitBusy.value = true;
-  try { await authApi.deletePortrait(); portraitUploaded.value = false; portraitFile.value = null; portraitConsent.value = false; }
+  try { await authApi.deletePortrait(); portraitUploaded.value = false; portrait.value = null; portraitFile.value = null; portraitConsent.value = false; }
   catch { portraitError.value = "The portrait could not be removed."; }
   finally { portraitBusy.value = false; }
 };
-onMounted(() => { void sessionStore.loadSessions(); });
+onMounted(async () => {
+  await sessionStore.loadSessions();
+  try { portrait.value = await authApi.getPortrait(); portraitUploaded.value = true; }
+  catch (error) { if (!axios.isAxiosError(error) || error.response?.status !== 404) portraitError.value = "The current portrait could not be loaded."; }
+});
 const create = async () => {
   creationError.value = "";
   try {
@@ -78,3 +88,13 @@ const create = async () => {
 };
 const logout = async () => { await authStore.logout(); await router.push("/login"); };
 </script>
+
+<style scoped>
+.portrait-panel { max-width: 520px; margin: 24px 0; padding: 16px; border: 1px solid #d3dad6; border-radius: 8px; }
+.portrait-panel p { color: #5c706d; font-size: 13px; line-height: 1.45; }
+.portrait-panel label { display: block; margin: 12px 0; font-size: 13px; }
+.portrait-panel button { margin: 8px 8px 0 0; padding: 8px 12px; border: 1px solid #789490; border-radius: 6px; background: #eef2ec; color: #285c58; cursor: pointer; }
+.portrait-panel button:disabled { opacity: 0.55; cursor: default; }
+.portrait-preview { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: #285c58; font-size: 12px; font-weight: 700; }
+.portrait-preview img { width: 72px; height: 72px; object-fit: cover; border: 2px solid #a8bbb6; border-radius: 50%; }
+</style>

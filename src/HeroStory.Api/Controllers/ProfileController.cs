@@ -17,6 +17,13 @@ public class ProfileController : ControllerBase
         _portraitService = portraitService;
     }
 
+    [HttpGet]
+    public async Task<ActionResult<PortraitDto>> Get(CancellationToken cancellationToken)
+    {
+        var portrait = await _portraitService.GetActiveAsync(GetUserId(), cancellationToken);
+        return portrait is null ? NotFound() : Ok(portrait);
+    }
+
     [HttpPost]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<ActionResult<PortraitDto>> Upload(IFormFile file, [FromForm] bool consentGranted, CancellationToken cancellationToken)

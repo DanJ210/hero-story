@@ -95,6 +95,19 @@ public class UserPortraitService : IUserPortraitService
         return portrait is null ? null : new UserPortraitReference(portrait.Id, portrait.ConsentGrantedAt);
     }
 
-    private static PortraitDto ToDto(UserPortrait portrait)
-        => new(portrait.Id, portrait.ContentType, portrait.ContentLength, portrait.ConsentGrantedAt, portrait.CreatedAt);
+    public async Task<PortraitDto?> GetActiveAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var portrait = await _dbContext.UserPortraits
+            .Where(candidate => candidate.UserId == userId && candidate.DeletedAt == null && candidate.DisabledAt == null)
+            .OrderByDescending(candidate => candidate.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        return portrait is null ? null : ToDto(portrait);
+    }
+
+    private PortraitDto ToDto(UserPortrait portrait)
+    {
+        var containerName = _configuration["AZURE_BLOB_PORTRAITS_CONTAINER"] ?? "hero-story-portraits";
+        var thumbnailUrl = _blobService.GenerateSasUrl(containerName, portrait.BlobName);
+        return new PortraitDto(portrait.Id, portrait.ContentType, portrait.ContentLength, portrait.ConsentGrantedAt, portrait.CreatedAt, thumbnailUrl);
+    }
 }
