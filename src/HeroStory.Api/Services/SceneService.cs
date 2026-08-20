@@ -14,17 +14,20 @@ public class SceneService : ISceneService
     private readonly IModerationService _moderationService;
     private readonly IOpenAiTextService _openAiTextService;
     private readonly AzureQueueClient _queueClient;
+    private readonly IUserPortraitService _userPortraitService;
 
     public SceneService(
         AppDbContext dbContext,
         IModerationService moderationService,
         IOpenAiTextService openAiTextService,
-        AzureQueueClient queueClient)
+        AzureQueueClient queueClient,
+        IUserPortraitService? userPortraitService = null)
     {
         _dbContext = dbContext;
         _moderationService = moderationService;
         _openAiTextService = openAiTextService;
         _queueClient = queueClient;
+        _userPortraitService = userPortraitService!;
     }
 
     public async Task<IReadOnlyList<SceneListDto>> GetScenesAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
@@ -268,7 +271,7 @@ public class SceneService : ISceneService
         return SceneDtoMapper.ToDto(scene);
     }
 
-    public async Task<SceneDto> RequestArtworkAsync(Guid userId, Guid sessionId, Guid sceneId, CancellationToken cancellationToken)
+    public async Task<SceneDto> RequestArtworkAsync(Guid userId, Guid sessionId, Guid sceneId, bool usePortrait, CancellationToken cancellationToken)
     {
         var scene = await _dbContext.Scenes
             .Include(candidate => candidate.GenerationJobs)
@@ -279,11 +282,25 @@ public class SceneService : ISceneService
             throw new InvalidOperationException("Artwork is already being generated for this scene.");
         }
 
+        UserPortraitReference? portrait = null;
+        if (usePortrait)
+        {
+            portrait = _userPortraitService is null
+                ? null
+                : await _userPortraitService.GetActiveReferenceAsync(userId, cancellationToken);
+            if (portrait is null)
+            {
+                throw new InvalidOperationException("An active consented portrait is required for likeness artwork.");
+            }
+        }
+
         var job = new GenerationJob
         {
             Id = Guid.NewGuid(),
             SceneId = scene.Id,
             SessionId = scene.SessionId,
+            PortraitId = portrait?.Id,
+            PortraitConsentGrantedAt = portrait?.ConsentGrantedAt,
             Prompt = $"Manual artwork request for scene {scene.SequenceNumber}.",
             Status = JobStatus.Queued,
             CreatedAt = DateTime.UtcNow,

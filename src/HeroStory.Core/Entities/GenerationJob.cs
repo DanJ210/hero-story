@@ -7,6 +7,8 @@ public class GenerationJob
     public Guid Id { get; set; }
     public Guid SceneId { get; set; }
     public Guid SessionId { get; set; }
+    public Guid? PortraitId { get; set; }
+    public DateTime? PortraitConsentGrantedAt { get; set; }
     public string Prompt { get; set; } = string.Empty;
     public JobStatus Status { get; set; } = JobStatus.Queued;
     public int AttemptCount { get; set; } = 0;

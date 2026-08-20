@@ -103,21 +103,45 @@ public class SceneServiceTests
         var queue = CreateQueue();
         var service = new SceneService(dbContext, new Mock<IModerationService>().Object, new Mock<IOpenAiTextService>().Object, queue.Object);
 
-        var firstRequest = await service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, CancellationToken.None);
+        var firstRequest = await service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, false, CancellationToken.None);
         var pendingException = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, CancellationToken.None));
+            service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, false, CancellationToken.None));
         var firstJob = await dbContext.GenerationJobs.SingleAsync();
         firstJob.Status = JobStatus.Completed;
         firstJob.CompletedAt = DateTime.UtcNow;
         await dbContext.SaveChangesAsync();
 
-        var secondRequest = await service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, CancellationToken.None);
+        var secondRequest = await service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, false, CancellationToken.None);
 
         Assert.Equal(ArtworkStatus.Queued, firstRequest.ArtworkStatus);
         Assert.Contains("already being generated", pendingException.Message);
         Assert.Equal(ArtworkStatus.Queued, secondRequest.ArtworkStatus);
         Assert.Equal(2, await dbContext.GenerationJobs.CountAsync());
         queue.Verify(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task RequestArtworkAsync_WithPortraitStoresOpaquePortraitProvenance()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Likeness artwork");
+        var scene = CreatePreviousScene(session.Id, 1, "PORTRAIT_SCENE");
+        session.Scenes.Add(scene);
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var portraitId = Guid.NewGuid();
+        var portraits = new Mock<IUserPortraitService>();
+        portraits.Setup(service => service.GetActiveReferenceAsync(session.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserPortraitReference(portraitId, DateTime.UtcNow));
+        var service = new SceneService(dbContext, new Mock<IModerationService>().Object, new Mock<IOpenAiTextService>().Object, CreateQueue().Object, portraits.Object);
+
+        await service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, true, CancellationToken.None);
+
+        var job = await dbContext.GenerationJobs.SingleAsync();
+        Assert.Equal(portraitId, job.PortraitId);
+        Assert.NotNull(job.PortraitConsentGrantedAt);
     }
 
     [Theory]
