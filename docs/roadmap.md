@@ -20,7 +20,7 @@ This roadmap reflects expected progression from current MVP scaffold to producti
 
 ### Current milestone
 
-Harden structured-turn provider reliability. Episodes now pause, resume, and conclude through explicit commands while validated completion metadata transitions the session to `Completed`; the next slice adds malformed-provider retry policy and observability around narrative/state validation failures.
+Expand bounded multi-turn continuity. Structured-turn validation now retries malformed provider responses with configurable limits, corrective retry instructions, and structured attempt logging; the next slice compacts older context while preserving story facts and unresolved threads.
 
 ### Completed Milestones
 
@@ -35,6 +35,7 @@ Harden structured-turn provider reliability. Episodes now pause, resume, and con
 - [x] Complete a session when a validated turn confirms episode completion and keep its active path readable.
 - [x] Make the workspace status-aware by disabling continuation for paused or completed episodes.
 - [x] Allow users to request artwork manually for any active-path scene and request a new image after the prior job settles.
+- [x] Retry malformed structured-turn responses with bounded configuration and validation-attempt observability.
 
 ### Deferred until the workspace is usable
 
@@ -44,15 +45,12 @@ Harden structured-turn provider reliability. Episodes now pause, resume, and con
 
 ## Near-term (MVP completion)
 
-1. Harden the implemented structured turn foundation:
-   - add malformed-provider-response retry policy and observability,
-   - add configurable retry/failure behavior for narrative or state validation failures,
-2. Expand the implemented latest-turn continuity prompting:
+1. Expand the implemented latest-turn continuity prompting:
    - compact relevant summaries across older turns,
    - measure and cap the complete prompt budget,
    - add continuity regression evaluations for facts, relationships, and unresolved threads.
-3. Extend the implemented selective artwork policy with automatic retry commands and idempotent dispatch.
-4. Add vertical-slice tests proving multi-turn continuity and explicit artwork retry.
+2. Extend the implemented selective artwork policy with automatic retry commands and idempotent dispatch.
+3. Add vertical-slice tests proving multi-turn continuity and explicit artwork retry.
 
 ## Mid-term (production readiness)
 
