@@ -70,10 +70,10 @@ export const useWorkspaceStore = defineStore("workspace", {
         this.generating = false;
       }
     },
-    async requestArtwork(sessionId: string, sceneId: string) {
+    async requestArtwork(sessionId: string, sceneId: string, usePortrait = false) {
       this.artworkSceneId = sceneId;
       try {
-        const scene = await sceneApi.requestArtwork(sessionId, sceneId);
+        const scene = await sceneApi.requestArtwork(sessionId, sceneId, usePortrait);
         await this.refresh(sessionId);
         return scene;
       } finally {

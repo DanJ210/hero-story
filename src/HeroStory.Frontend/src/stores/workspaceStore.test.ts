@@ -102,9 +102,9 @@ describe("workspaceStore", () => {
     const store = useWorkspaceStore();
 
     await store.load("session-1");
-    await store.requestArtwork("session-1", original.id);
+    await store.requestArtwork("session-1", original.id, true);
 
-    expect(sceneApi.requestArtwork).toHaveBeenCalledWith("session-1", original.id);
+    expect(sceneApi.requestArtwork).toHaveBeenCalledWith("session-1", original.id, true);
     expect(store.workspace?.turns[0].artworkStatus).toBe("queued");
     expect(store.artworkSceneId).toBeNull();
   });

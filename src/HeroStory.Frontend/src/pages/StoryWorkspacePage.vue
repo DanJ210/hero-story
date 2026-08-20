@@ -143,10 +143,14 @@
                 <ImageOff :size="18" /> Artwork unavailable
               </div>
               <div class="artwork-actions">
+                <label class="portrait-toggle">
+                  <input v-model="portraitSceneIds[turn.id]" type="checkbox" />
+                  <span>Use my private portrait</span>
+                </label>
                 <button
                   type="button"
                   :disabled="isArtworkPending(turn.artworkStatus) || workspaceStore.artworkSceneId === turn.id"
-                  @click="requestArtwork(turn.id)"
+                  @click="requestArtwork(turn.id, portraitSceneIds[turn.id] === true)"
                 >
                   <LoaderCircle v-if="workspaceStore.artworkSceneId === turn.id" class="spin" :size="16" />
                   <ImagePlus v-else :size="16" />
@@ -253,6 +257,7 @@ const revisionText = ref("");
 const revisionOpen = ref(false);
 const loadError = ref("");
 const generationError = ref("");
+const portraitSceneIds = ref<Record<string, boolean>>({});
 const timelineEnd = ref<HTMLElement | null>(null);
 const timelineElement = ref<HTMLElement | null>(null);
 const sessionId = computed(() => route.params.sessionId as string);
@@ -376,10 +381,10 @@ const concludeEpisode = async () => {
   }
 };
 
-const requestArtwork = async (sceneId: string) => {
+const requestArtwork = async (sceneId: string, usePortrait: boolean) => {
   generationError.value = "";
   try {
-    await workspaceStore.requestArtwork(sessionId.value, sceneId);
+    await workspaceStore.requestArtwork(sessionId.value, sceneId, usePortrait);
     configureArtworkPolling();
   } catch (error) {
     generationError.value = errorMessage(error, "Artwork could not be requested. Please try again.");
@@ -495,6 +500,7 @@ onBeforeUnmount(() => { if (artworkTimer !== undefined) window.clearInterval(art
 .artwork-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 .artwork-actions button { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #a8bbb6; border-radius: 6px; padding: 0 10px; background: #eef2ec; color: #285c58; font-size: 12px; font-weight: 700; cursor: pointer; }
 .artwork-actions button:disabled { opacity: 0.55; cursor: default; }
+.portrait-toggle { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; color: #5c706d; font-size: 11px; cursor: pointer; }
 .timeline-end { height: 1px; }
 .workspace-state { min-height: 60vh; display: grid; place-items: center; align-content: center; gap: 10px; color: #60716f; text-align: center; }
 .workspace-state p { margin: 0; }
