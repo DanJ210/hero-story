@@ -142,6 +142,69 @@ public class SceneEndpointTests
         Assert.Equal(JobStatus.Queued, verificationContext.GenerationJobs.Single(job => job.SceneId == scene.Id).Status);
     }
 
+    [Fact]
+    public async Task RequestArtwork_WithPortraitEnabledRejectsWhenNoActivePortraitExists()
+    {
+        await using var fixture = new DevelopmentApiFixture();
+        using var client = fixture.CreateClient();
+        var userId = await AuthenticateDevelopmentUserAsync(fixture, client);
+        var session = CreateSession(userId);
+        var scene = CreateScene(session.Id, 1, "Portrait request", true);
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            dbContext.AddRange(session, scene);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var response = await client.PostAsync($"/api/sessions/{session.Id}/scenes/{scene.Id}/artwork?usePortrait=true", null);
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        using var verificationScope = fixture.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Empty(verificationContext.GenerationJobs.Where(job => job.SceneId == scene.Id));
+    }
+
+    [Fact]
+    public async Task RequestArtwork_WithPortraitEnabledStoresPortraitProvenanceOnJob()
+    {
+        await using var fixture = new DevelopmentApiFixture();
+        using var client = fixture.CreateClient();
+        var userId = await AuthenticateDevelopmentUserAsync(fixture, client);
+        var session = CreateSession(userId);
+        var scene = CreateScene(session.Id, 1, "Portrait provenance", true);
+        var consentGrantedAt = DateTime.UtcNow.AddMinutes(-5);
+        var portraitId = Guid.NewGuid();
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            dbContext.AddRange(session, scene);
+            dbContext.UserPortraits.Add(new UserPortrait
+            {
+                Id = portraitId,
+                UserId = userId,
+                BlobName = "users/test/portraits/portrait-a",
+                ContentType = "image/jpeg",
+                ContentLength = 2048,
+                ConsentGrantedAt = consentGrantedAt,
+                CreatedAt = consentGrantedAt
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var response = await client.PostAsync($"/api/sessions/{session.Id}/scenes/{scene.Id}/artwork?usePortrait=true", null);
+
+        Assert.Equal(System.Net.HttpStatusCode.Accepted, response.StatusCode);
+        using var verificationScope = fixture.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var job = verificationContext.GenerationJobs.Single(job => job.SceneId == scene.Id);
+        Assert.Equal(portraitId, job.PortraitId);
+        Assert.Equal(consentGrantedAt, job.PortraitConsentGrantedAt);
+        Assert.Equal(JobStatus.Queued, job.Status);
+    }
+
     private static async Task<Guid> AuthenticateDevelopmentUserAsync(DevelopmentApiFixture fixture, HttpClient client)
     {
         var loginResponse = await client.PostAsync("/api/auth/dev-login", null);

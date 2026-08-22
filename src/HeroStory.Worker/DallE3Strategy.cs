@@ -47,6 +47,8 @@ public class DallE3Strategy : IImageGeneratorStrategy
                         && candidate.DisabledAt == null,
                     cancellationToken)
                     ?? throw new InvalidOperationException("The consented portrait is no longer available.");
+                var maxReferenceAge = PortraitLikenessPolicy.ResolveReferenceMaxAge(_configuration);
+                PortraitLikenessPolicy.ValidateForGeneration(job, portrait, DateTime.UtcNow, maxReferenceAge);
                 var portraitsContainer = _configuration["AZURE_BLOB_PORTRAITS_CONTAINER"] ?? "hero-story-portraits";
                 await using var portraitStream = await _blobService.DownloadAsync(portraitsContainer, portrait.BlobName, cancellationToken);
                 await using var normalizedPortrait = await NormalizePortraitAsync(portraitStream, cancellationToken);

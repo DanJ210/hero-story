@@ -51,7 +51,14 @@ public class ImageGenerationWorker : BackgroundService
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var strategies = scope.ServiceProvider.GetRequiredService<IEnumerable<IImageGeneratorStrategy>>();
         var payload = JsonSerializer.Deserialize<JobPayload>(message.MessageText) ?? throw new InvalidOperationException("Queue payload invalid.");
-        var job = await dbContext.GenerationJobs.SingleAsync(x => x.Id == payload.jobId, cancellationToken);
+        var job = await dbContext.GenerationJobs.SingleOrDefaultAsync(x => x.Id == payload.jobId, cancellationToken);
+        if (job is null)
+        {
+            _logger.LogWarning("Skipping stale queue message for missing image job {JobId}.", payload.jobId);
+            await _queueClient.DeleteMessageAsync(message.MessageId, message.PopReceipt, cancellationToken);
+            return;
+        }
+
         if (job.Status == JobStatus.Completed)
         {
             _logger.LogInformation("Skipping already completed image job {JobId}.", job.Id);

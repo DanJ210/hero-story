@@ -16,6 +16,9 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="HeroStory.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
     <None Update="assets\placeholder.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
