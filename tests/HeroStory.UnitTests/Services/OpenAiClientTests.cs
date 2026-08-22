@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using HeroStory.Infrastructure.Clients;
 using Microsoft.Extensions.Configuration;
 
@@ -53,6 +54,36 @@ public class OpenAiClientTests
         var flagged = await client.GetFlaggedCategoriesAsync("unknown", CancellationToken.None);
 
         Assert.Equal([OpenAiClient.UnspecifiedModerationCategory], flagged);
+    }
+
+    [Fact]
+    public async Task GenerateImageWithReferenceAsync_SendsDataUrlAndReturnsDecodedImageBytes()
+    {
+        string? requestBody = null;
+        var expectedBytes = new byte[] { 1, 2, 3, 4 };
+        var handler = new StubHttpMessageHandler(async request =>
+        {
+            requestBody = await request.Content!.ReadAsStringAsync();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"data\":[{\"b64_json\":\"AQIDBA==\"}]}")
+            };
+        });
+        var client = new OpenAiClient(new HttpClient(handler), new ConfigurationBuilder().AddInMemoryCollection().Build());
+        await using var referenceImage = new MemoryStream([0x10, 0x20, 0x30, 0x40]);
+
+        var result = await client.GenerateImageWithReferenceAsync("portrait prompt", referenceImage, "image/jpeg", CancellationToken.None);
+
+        Assert.Equal(expectedBytes, result);
+        Assert.NotNull(requestBody);
+        using var json = JsonDocument.Parse(requestBody!);
+        var imageUrl = json.RootElement.GetProperty("images")[0].GetProperty("image_url").GetString();
+        Assert.NotNull(imageUrl);
+        Assert.StartsWith("data:image/jpeg;base64,", imageUrl, StringComparison.Ordinal);
+
+        var encoded = imageUrl!["data:image/jpeg;base64,".Length..];
+        var decodedReferenceBytes = Convert.FromBase64String(encoded);
+        Assert.Equal(new byte[] { 0x10, 0x20, 0x30, 0x40 }, decodedReferenceBytes);
     }
 
     private sealed class StubHttpMessageHandler : HttpMessageHandler
