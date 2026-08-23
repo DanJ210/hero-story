@@ -50,11 +50,9 @@ Begin consent-driven hero-likeness personalization. The first phase isolates por
    - [x] Add provider-reference expiry/provenance policy and complete the manual likeness evaluation coverage.
 - [ ] Phase 3: optional automatic likeness artwork, disable/replace flows, deletion semantics, and end-to-end policy tests.
 
-### Deferred until the workspace is usable
+### Still deferred
 
-- multi-turn summary compaction,
-- artwork retry evaluation coverage,
-- hero-likeness personalization.
+- multi-turn summary compaction.
 
 ## Near-term (MVP completion)
 
