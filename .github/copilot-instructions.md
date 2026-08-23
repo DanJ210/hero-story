@@ -29,6 +29,7 @@ The repository is intended to support incremental development from scaffold to p
 - Preserve the user-facing intent of the app: safe, scoped, moderated storytelling flows with secure auth and queue-based image processing.
 - Preserve the reader-first product contract: the user is the superhero, prose is book-like, free-text decisions materially influence stored story state, suggestions remain optional, and revision preserves prior versions rather than destructively rewriting history.
 - Treat the repo as a real project with a baseline scaffold; do not remove required project structure, source folders, or documentation.
+- Before large refactors, dependency updates, or major feature work, confirm the repo still matches the target stack and baseline documented in `docs/handoff-plan.md`, `docs/architecture.md`, and the active project configuration.
 
 ## Project structure
 
@@ -46,6 +47,7 @@ The repository is intended to support incremental development from scaffold to p
 - Prefer explicit types and small service boundaries.
 - Put non-secret local .NET defaults in the owning project's `appsettings.Development.json`; put secrets in that project's user-secrets store. Environment variables are supported as higher-precedence overrides.
 - Keep .NET 10 platform package versions aligned across API, Core, Infrastructure, Worker, and test projects. In particular, do not mix EF Core or ASP.NET Core major versions.
+- Before changing dependencies or large code paths, confirm the current package versions, project references, and runtime assumptions still match the repo baseline and the target architecture. Do not debug package mismatches as if they were business-logic bugs.
 - Treat `.ts` and `.vue` files under `src/HeroStory.Frontend/src` as canonical source. Keep TypeScript `noEmit` enabled and never add generated `.js` files beside source; Vite output belongs in ignored `dist/`.
 - For OpenAI or external service calls, fail safely and surface structured errors rather than leaking secrets or sensitive data.
 - If a feature is not fully implemented, preserve a clear TODO or stub with explanatory comment rather than leaving broken behavior silently.
@@ -53,11 +55,12 @@ The repository is intended to support incremental development from scaffold to p
 
 ## Testing expectations
 
+- For features spanning API, worker, or frontend flows, validate the actual end-to-end request path before declaring the work complete; isolated unit tests are not enough for cross-layer functionality.
+- Before rebuilding or rerunning the API/worker, stop any existing Hero Story processes and confirm there are no stale `.exe` or runtime locks; on Windows, a running `HeroStory.Api` process can prevent rebuilds and cause `MSB3021`/`MSB3027` errors.
 - Run the smallest relevant validation command for the change.
 - Use existing test projects rather than creating new bespoke tooling.
 - Prefer targeted validation before broad suites when iterating on a single feature area.
 - Integration tests replace SQL Server with EF InMemory. When changing EF registrations, remove all production provider option registrations, including `IDbContextOptionsConfiguration<AppDbContext>`, before adding InMemory.
-- Stop a running `HeroStory.Api` process before builds that rebuild its project reference; on Windows it locks `HeroStory.Api.exe` and causes `MSB3021`/`MSB3027` copy failures.
 - Preserve buildability and testability across API, worker, and frontend layers.
 
 ## Commands
