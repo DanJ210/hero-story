@@ -29,6 +29,8 @@ The repository is intended to support incremental development from scaffold to p
 - Preserve the user-facing intent of the app: safe, scoped, moderated storytelling flows with secure auth and queue-based image processing.
 - Preserve the reader-first product contract: the user is the superhero, prose is book-like, free-text decisions materially influence stored story state, suggestions remain optional, and revision preserves prior versions rather than destructively rewriting history.
 - Treat the repo as a real project with a baseline scaffold; do not remove required project structure, source folders, or documentation.
+- Keep each work session scoped to one slice or feature at a time; do not mix unrelated debugging, documentation, and implementation work in the same chat unless the task is explicitly a combined pass.
+- Keep prompts surgical: include only the exact file, command output, log snippet, or error needed to diagnose the issue; avoid pasting broad terminal dumps or large unrelated context into the main session.
 - Before large refactors, dependency updates, or major feature work, confirm the repo still matches the target stack and baseline documented in `docs/handoff-plan.md`, `docs/architecture.md`, and the active project configuration.
 
 ## Project structure
@@ -57,6 +59,7 @@ The repository is intended to support incremental development from scaffold to p
 
 - For features spanning API, worker, or frontend flows, validate the actual end-to-end request path before declaring the work complete; isolated unit tests are not enough for cross-layer functionality.
 - Before rebuilding or rerunning the API/worker, stop any existing Hero Story processes and confirm there are no stale `.exe` or runtime locks; on Windows, a running `HeroStory.Api` process can prevent rebuilds and cause `MSB3021`/`MSB3027` errors.
+- If a session becomes long or context gets noisy, compact it or start a fresh chat instead of continuing with stale context; the goal is to keep the working memory specific to the current slice.
 - Run the smallest relevant validation command for the change.
 - Use existing test projects rather than creating new bespoke tooling.
 - Prefer targeted validation before broad suites when iterating on a single feature area.
