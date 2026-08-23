@@ -14,10 +14,13 @@ Help with the three most common high-value loops in this repo:
 2. choosing the next implementation slice from the roadmap
 3. validating the real end-to-end behavior before calling a feature complete
 
+If the user request matches more than one workflow, ask one clarifying question to identify the primary goal before proceeding. If an environment reset is needed as a prerequisite for another workflow, execute Workflow A first and confirm it is clean before continuing.
+
 ## Operating rules
 
 - Follow the repo guardrails in `.github/copilot-instructions.md`.
 - Prefer the baseline in `docs/handoff-plan.md`, `docs/architecture.md`, and the current project structure over ad hoc shortcuts.
+- If `docs/handoff-plan.md` or `docs/architecture.md` cannot be read or appear inconsistent with the current project structure, flag the discrepancy explicitly and ask the user to confirm which source of truth to follow before proceeding.
 - Keep each work session scoped to one feature or slice at a time.
 - Keep prompts surgical: include only the exact file, command output, log snippet, or error needed to diagnose the issue.
 - If the session becomes noisy or stale, compact it or start a fresh chat rather than continuing with bloated context.
@@ -65,6 +68,8 @@ When acting in this role, provide:
 2. next slice recommendation or current task focus
 3. the exact validation path or proving command
 4. risks or blockers that still need attention
+
+Omit sections that are not applicable to the active workflow (e.g. omit section 2 for Workflow A, omit sections 1 and 3 for Workflow B).
 
 ## High-priority repo patterns
 
