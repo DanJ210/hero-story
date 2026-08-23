@@ -140,7 +140,7 @@
                 <ImageIcon :size="18" /> Artwork is developing
               </div>
               <div v-else-if="turn.artworkStatus === 'failed' || turn.artworkStatus === 'poisoned'" class="artwork-status artwork-status--error">
-                <ImageOff :size="18" /> Artwork unavailable
+                <ImageOff :size="18" /> {{ artworkErrorMessage(turn.artworkErrorCode) }}
               </div>
               <div class="artwork-actions">
                 <label class="portrait-toggle">
@@ -244,7 +244,7 @@ import {
 import { useAuthStore } from "../stores/authStore";
 import { useSessionStore } from "../stores/sessionStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
-import { isArtworkPending } from "../utils/artworkStatus";
+import { artworkErrorMessage, isArtworkPending } from "../utils/artworkStatus";
 
 const route = useRoute();
 const router = useRouter();

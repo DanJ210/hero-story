@@ -125,6 +125,7 @@ const createTurn = (id: string, sequenceNumber: number, storyBeat: SceneDto["sto
   storyBeat,
   isEpisodeComplete: false,
   artworkStatus: storyBeat === "opening" ? "queued" : "notRequested",
+  artworkErrorCode: null,
   imageUrl: null,
   imageUrlExpiresAt: null,
   moderationStatus: "approved",

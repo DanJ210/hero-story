@@ -94,6 +94,7 @@ public class StoryCreationServiceTests
             ArtworkStatus.Queued,
             null,
             null,
+            null,
             ModerationStatus.Approved,
             null,
             DateTime.UtcNow,

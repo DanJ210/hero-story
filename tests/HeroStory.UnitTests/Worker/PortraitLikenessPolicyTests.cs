@@ -14,9 +14,10 @@ public class PortraitLikenessPolicyTests
         var job = CreateJob(now, consentGrantedAt: null);
         var portrait = CreatePortrait(now.AddMinutes(-1));
 
-        var exception = Assert.Throws<InvalidOperationException>(() =>
+        var exception = Assert.Throws<ArtworkPolicyException>(() =>
             PortraitLikenessPolicy.ValidateForGeneration(job, portrait, now, TimeSpan.FromMinutes(120)));
 
+        Assert.Equal(ArtworkErrorCode.PortraitConsentMissing, exception.Code);
         Assert.Contains("missing consent timestamp", exception.Message);
     }
 
@@ -27,9 +28,10 @@ public class PortraitLikenessPolicyTests
         var job = CreateJob(now, consentGrantedAt: now.AddMinutes(-20));
         var portrait = CreatePortrait(now.AddMinutes(-10));
 
-        var exception = Assert.Throws<InvalidOperationException>(() =>
+        var exception = Assert.Throws<ArtworkPolicyException>(() =>
             PortraitLikenessPolicy.ValidateForGeneration(job, portrait, now, TimeSpan.FromMinutes(120)));
 
+        Assert.Equal(ArtworkErrorCode.PortraitProvenanceMismatch, exception.Code);
         Assert.Contains("no longer matches", exception.Message);
     }
 
@@ -41,9 +43,10 @@ public class PortraitLikenessPolicyTests
         var job = CreateJob(now.AddMinutes(-180), consentGrantedAt);
         var portrait = CreatePortrait(consentGrantedAt);
 
-        var exception = Assert.Throws<InvalidOperationException>(() =>
+        var exception = Assert.Throws<ArtworkPolicyException>(() =>
             PortraitLikenessPolicy.ValidateForGeneration(job, portrait, now, TimeSpan.FromMinutes(120)));
 
+        Assert.Equal(ArtworkErrorCode.PortraitReferenceExpired, exception.Code);
         Assert.Contains("reference expired", exception.Message);
     }
 

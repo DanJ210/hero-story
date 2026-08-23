@@ -5,8 +5,8 @@
     <p v-if="sceneStore.currentScene.moderationDetail">Moderation: {{ sceneStore.currentScene.moderationDetail }}</p>
     <img v-if="sceneStore.currentScene.imageUrl" :src="sceneStore.currentScene.imageUrl" alt="Generated artwork" />
     <p v-else-if="isArtworkPending(sceneStore.currentScene.artworkStatus)">Artwork is being generated...</p>
-    <p v-else-if="sceneStore.currentScene.artworkStatus === 'failed'">Artwork generation failed.</p>
-    <p v-else-if="sceneStore.currentScene.artworkStatus === 'poisoned'">Artwork could not be generated after several attempts.</p>
+    <p v-else-if="sceneStore.currentScene.artworkStatus === 'failed'">{{ artworkErrorMessage(sceneStore.currentScene.artworkErrorCode) }}</p>
+    <p v-else-if="sceneStore.currentScene.artworkStatus === 'poisoned'">{{ artworkErrorMessage(sceneStore.currentScene.artworkErrorCode) }}</p>
     <p v-else-if="sceneStore.currentScene.artworkStatus === 'completed'">Artwork is temporarily unavailable.</p>
     <p><RouterLink :to="`/sessions/${sessionId}`">Continue story</RouterLink></p>
   </section>
@@ -17,6 +17,7 @@ import { onBeforeUnmount, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useSceneStore } from "../stores/sceneStore";
 import { isArtworkPending } from "../utils/artworkStatus";
+import { artworkErrorMessage } from "../utils/artworkStatus";
 const route = useRoute();
 const sceneStore = useSceneStore();
 const sessionId = route.params.sessionId as string;

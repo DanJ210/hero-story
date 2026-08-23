@@ -52,6 +52,7 @@ const createStoryResult = (): CreateStorySessionResponse => ({
     storyBeat: "opening",
     isEpisodeComplete: false,
     artworkStatus: "queued",
+    artworkErrorCode: null,
     imageUrl: null,
     imageUrlExpiresAt: null,
     moderationStatus: "approved",

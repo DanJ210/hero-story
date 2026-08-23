@@ -1,4 +1,5 @@
 using HeroStory.Core.Entities;
+using HeroStory.Core.Enums;
 
 namespace HeroStory.Worker;
 
@@ -19,17 +20,17 @@ internal static class PortraitLikenessPolicy
     {
         if (job.PortraitConsentGrantedAt is null)
         {
-            throw new InvalidOperationException("Likeness provenance is missing consent timestamp.");
+            throw new ArtworkPolicyException(ArtworkErrorCode.PortraitConsentMissing, "Likeness provenance is missing consent timestamp.");
         }
 
         if (portrait.ConsentGrantedAt != job.PortraitConsentGrantedAt.Value)
         {
-            throw new InvalidOperationException("Portrait consent provenance no longer matches the active portrait.");
+            throw new ArtworkPolicyException(ArtworkErrorCode.PortraitProvenanceMismatch, "Portrait consent provenance no longer matches the active portrait.");
         }
 
         if (nowUtc - job.CreatedAt > maxAge)
         {
-            throw new InvalidOperationException("The portrait likeness reference expired before generation started. Request artwork again.");
+            throw new ArtworkPolicyException(ArtworkErrorCode.PortraitReferenceExpired, "The portrait likeness reference expired before generation started. Request artwork again.");
         }
     }
 }

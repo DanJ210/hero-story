@@ -3,6 +3,7 @@ using global::HeroStory.Infrastructure.Clients;
 using global::HeroStory.Infrastructure.Data;
 using global::HeroStory.Infrastructure.Storage;
 using HeroStory.Core.Entities;
+using HeroStory.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -46,7 +47,7 @@ public class DallE3Strategy : IImageGeneratorStrategy
                         && candidate.DeletedAt == null
                         && candidate.DisabledAt == null,
                     cancellationToken)
-                    ?? throw new InvalidOperationException("The consented portrait is no longer available.");
+                    ?? throw new ArtworkPolicyException(ArtworkErrorCode.PortraitUnavailable, "The consented portrait is no longer available.");
                 var maxReferenceAge = PortraitLikenessPolicy.ResolveReferenceMaxAge(_configuration);
                 PortraitLikenessPolicy.ValidateForGeneration(job, portrait, DateTime.UtcNow, maxReferenceAge);
                 var portraitsContainer = _configuration["AZURE_BLOB_PORTRAITS_CONTAINER"] ?? "hero-story-portraits";
@@ -82,7 +83,9 @@ public class DallE3Strategy : IImageGeneratorStrategy
         catch (Exception ex)
         {
             job.Status = Core.Enums.JobStatus.Failed;
-            job.ErrorDetail = ex.Message;
+            job.ErrorDetail = ex is ArtworkPolicyException policyException
+                ? $"{policyException.Code}: {policyException.Message}"
+                : ex.Message;
             job.UpdatedAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(cancellationToken);
             throw;

@@ -65,7 +65,7 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
   - Preserves the original turn as superseded and returns the active replacement turn.
   - Returns `404` for a non-active or unowned turn and rejects any active turn that is not the latest.
 
-Scene detail and list responses include an `artworkStatus` value: `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned`. Opening, major, climax, and conclusion beats request artwork; standard beats do not.
+Scene detail and list responses include an `artworkStatus` value: `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned`, plus a nullable sanitized `artworkErrorCode` for known portrait-policy failures: `portraitUnavailable`, `portraitConsentMissing`, `portraitProvenanceMismatch`, or `portraitReferenceExpired`. Opening, major, climax, and conclusion beats request artwork; standard beats do not.
 
 - `POST /api/sessions/{id}/scenes/{sceneId}/artwork`
   - Queues an optional artwork request for an owned active scene.

@@ -23,6 +23,7 @@ public static class SceneDtoMapper
             scene.StoryBeat,
             scene.IsEpisodeComplete,
             GetArtworkStatus(GetLatestJob(scene)?.Status),
+            GetArtworkErrorCode(GetLatestJob(scene)),
             scene.ImageUrl,
             scene.ImageUrlExpiresAt,
             scene.ModerationStatus,
@@ -36,6 +37,7 @@ public static class SceneDtoMapper
             scene.SequenceNumber,
             scene.ChoiceText,
             GetArtworkStatus(GetLatestJob(scene)?.Status),
+            GetArtworkErrorCode(GetLatestJob(scene)),
             scene.ImageUrl,
             scene.ModerationStatus,
             scene.UpdatedAt);
@@ -48,6 +50,23 @@ public static class SceneDtoMapper
 
     private static GenerationJob? GetLatestJob(Scene scene)
         => scene.GenerationJobs.OrderByDescending(job => job.CreatedAt).ThenByDescending(job => job.Id).FirstOrDefault();
+
+    private static string? GetArtworkErrorCode(GenerationJob? job)
+    {
+        if (job?.Status is not (JobStatus.Failed or JobStatus.Poisoned) || string.IsNullOrWhiteSpace(job.ErrorDetail))
+        {
+            return null;
+        }
+
+        var separatorIndex = job.ErrorDetail.IndexOf(':');
+        var candidate = separatorIndex > 0 ? job.ErrorDetail[..separatorIndex] : null;
+        return candidate is ArtworkErrorCode.PortraitUnavailable
+            or ArtworkErrorCode.PortraitConsentMissing
+            or ArtworkErrorCode.PortraitProvenanceMismatch
+            or ArtworkErrorCode.PortraitReferenceExpired
+            ? candidate
+            : null;
+    }
 
     private static ArtworkStatus GetArtworkStatus(JobStatus? jobStatus)
         => jobStatus switch
