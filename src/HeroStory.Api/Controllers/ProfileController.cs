@@ -38,6 +38,10 @@ public class ProfileController : ControllerBase
     public async Task<IActionResult> Delete(CancellationToken cancellationToken)
         => await _portraitService.DeleteAsync(GetUserId(), cancellationToken) ? NoContent() : NotFound();
 
+    [HttpPost("disable")]
+    public async Task<IActionResult> Disable(CancellationToken cancellationToken)
+        => await _portraitService.DisableAsync(GetUserId(), cancellationToken) ? NoContent() : NotFound();
+
     private Guid GetUserId()
         => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new UnauthorizedAccessException());
 }

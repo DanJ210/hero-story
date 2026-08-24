@@ -13,4 +13,5 @@ export const uploadPortrait = async (file: File, consentGranted: boolean) => {
 	return (await httpClient.post<PortraitDto>("/profile/portrait", form)).data;
 };
 export const getPortrait = async () => (await httpClient.get<PortraitDto>("/profile/portrait")).data;
+export const disablePortrait = async () => httpClient.post("/profile/portrait/disable");
 export const deletePortrait = async () => httpClient.delete("/profile/portrait");

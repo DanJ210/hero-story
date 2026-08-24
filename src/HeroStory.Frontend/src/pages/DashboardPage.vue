@@ -23,9 +23,10 @@
       <input type="file" accept="image/jpeg,image/png,image/webp" @change="selectPortrait" />
       <label><input v-model="portraitConsent" type="checkbox" /> I own or am authorized to use this image and consent to private storage.</label>
       <button type="button" :disabled="!portraitFile || !portraitConsent || portraitBusy" @click="uploadPortrait">
-        {{ portraitBusy ? "Uploading..." : "Upload portrait" }}
+        {{ portraitBusy ? "Uploading..." : portraitUploaded ? "Replace portrait" : "Upload portrait" }}
       </button>
-      <button v-if="portraitUploaded" type="button" :disabled="portraitBusy" @click="removePortrait">Remove portrait</button>
+      <button v-if="portraitUploaded" type="button" :disabled="portraitBusy" @click="disablePortrait">Disable likeness</button>
+      <button v-if="portraitUploaded" type="button" :disabled="portraitBusy" @click="removePortrait">Delete portrait</button>
       <p v-if="portraitError" role="alert">{{ portraitError }}</p>
     </section>
     <ul>
@@ -67,8 +68,16 @@ const uploadPortrait = async () => {
 };
 const removePortrait = async () => {
   portraitBusy.value = true;
-  try { await authApi.deletePortrait(); portraitUploaded.value = false; portrait.value = null; portraitFile.value = null; portraitConsent.value = false; }
+  portraitError.value = "";
+  try { await authApi.deletePortrait(); portraitUploaded.value = false; portrait.value = null; portraitFile.value = null; portraitConsent.value = false; form.likenessEnabled = false; }
   catch { portraitError.value = "The portrait could not be removed."; }
+  finally { portraitBusy.value = false; }
+};
+const disablePortrait = async () => {
+  portraitBusy.value = true;
+  portraitError.value = "";
+  try { await authApi.disablePortrait(); portraitUploaded.value = false; portrait.value = null; form.likenessEnabled = false; }
+  catch { portraitError.value = "Likeness could not be disabled."; }
   finally { portraitBusy.value = false; }
 };
 onMounted(async () => {

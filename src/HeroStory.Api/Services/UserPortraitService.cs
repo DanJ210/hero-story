@@ -82,6 +82,28 @@ public class UserPortraitService : IUserPortraitService
         await _blobService.DeleteAsync(containerName, portrait.BlobName, cancellationToken);
         portrait.DisabledAt = DateTime.UtcNow;
         portrait.DeletedAt = DateTime.UtcNow;
+        await DisableSessionLikenessAsync(userId, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> DisableAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var activePortraits = await _dbContext.UserPortraits
+            .Where(candidate => candidate.UserId == userId && candidate.DeletedAt == null && candidate.DisabledAt == null)
+            .ToListAsync(cancellationToken);
+        if (activePortraits.Count == 0)
+        {
+            return false;
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var portrait in activePortraits)
+        {
+            portrait.DisabledAt = now;
+        }
+
+        await DisableSessionLikenessAsync(userId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -109,5 +131,17 @@ public class UserPortraitService : IUserPortraitService
         var containerName = _configuration["AZURE_BLOB_PORTRAITS_CONTAINER"] ?? "hero-story-portraits";
         var thumbnailUrl = _blobService.GenerateSasUrl(containerName, portrait.BlobName);
         return new PortraitDto(portrait.Id, portrait.ContentType, portrait.ContentLength, portrait.ConsentGrantedAt, portrait.CreatedAt, thumbnailUrl);
+    }
+
+    private async Task DisableSessionLikenessAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var optedInSessions = await _dbContext.StorySessions
+            .Where(session => session.UserId == userId && session.LikenessEnabled)
+            .ToListAsync(cancellationToken);
+        foreach (var session in optedInSessions)
+        {
+            session.LikenessEnabled = false;
+            session.UpdatedAt = DateTime.UtcNow;
+        }
     }
 }

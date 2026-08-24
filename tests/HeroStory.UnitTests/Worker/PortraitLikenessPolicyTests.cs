@@ -11,8 +11,9 @@ public class PortraitLikenessPolicyTests
     public void ValidateForGeneration_ThrowsWhenConsentTimestampMissingOnJob()
     {
         var now = DateTime.UtcNow;
-        var job = CreateJob(now, consentGrantedAt: null);
-        var portrait = CreatePortrait(now.AddMinutes(-1));
+        var portraitId = Guid.NewGuid();
+        var job = CreateJob(now, consentGrantedAt: null, portraitId);
+        var portrait = CreatePortrait(now.AddMinutes(-1), portraitId);
 
         var exception = Assert.Throws<ArtworkPolicyException>(() =>
             PortraitLikenessPolicy.ValidateForGeneration(job, portrait, now, TimeSpan.FromMinutes(120)));
@@ -25,8 +26,9 @@ public class PortraitLikenessPolicyTests
     public void ValidateForGeneration_ThrowsWhenConsentTimestampNoLongerMatchesPortrait()
     {
         var now = DateTime.UtcNow;
-        var job = CreateJob(now, consentGrantedAt: now.AddMinutes(-20));
-        var portrait = CreatePortrait(now.AddMinutes(-10));
+        var portraitId = Guid.NewGuid();
+        var job = CreateJob(now, consentGrantedAt: now.AddMinutes(-20), portraitId);
+        var portrait = CreatePortrait(now.AddMinutes(-10), portraitId);
 
         var exception = Assert.Throws<ArtworkPolicyException>(() =>
             PortraitLikenessPolicy.ValidateForGeneration(job, portrait, now, TimeSpan.FromMinutes(120)));
@@ -39,15 +41,31 @@ public class PortraitLikenessPolicyTests
     public void ValidateForGeneration_ThrowsWhenReferenceIsExpired()
     {
         var now = DateTime.UtcNow;
+        var portraitId = Guid.NewGuid();
         var consentGrantedAt = now.AddMinutes(-180);
-        var job = CreateJob(now.AddMinutes(-180), consentGrantedAt);
-        var portrait = CreatePortrait(consentGrantedAt);
+        var job = CreateJob(now.AddMinutes(-180), consentGrantedAt, portraitId);
+        var portrait = CreatePortrait(consentGrantedAt, portraitId);
 
         var exception = Assert.Throws<ArtworkPolicyException>(() =>
             PortraitLikenessPolicy.ValidateForGeneration(job, portrait, now, TimeSpan.FromMinutes(120)));
 
         Assert.Equal(ArtworkErrorCode.PortraitReferenceExpired, exception.Code);
         Assert.Contains("reference expired", exception.Message);
+    }
+
+    [Fact]
+    public void ValidateForGeneration_ThrowsWhenJobReferencesSupersededPortrait()
+    {
+        var now = DateTime.UtcNow;
+        var consentGrantedAt = now.AddMinutes(-10);
+        var job = CreateJob(now, consentGrantedAt, Guid.NewGuid());
+        var activePortrait = CreatePortrait(consentGrantedAt, Guid.NewGuid());
+
+        var exception = Assert.Throws<ArtworkPolicyException>(() =>
+            PortraitLikenessPolicy.ValidateForGeneration(job, activePortrait, now, TimeSpan.FromMinutes(120)));
+
+        Assert.Equal(ArtworkErrorCode.PortraitProvenanceMismatch, exception.Code);
+        Assert.Contains("active portrait", exception.Message);
     }
 
     [Fact]
@@ -66,13 +84,13 @@ public class PortraitLikenessPolicyTests
         Assert.Equal(TimeSpan.FromMinutes(120), invalidAge);
     }
 
-    private static GenerationJob CreateJob(DateTime createdAt, DateTime? consentGrantedAt)
+    private static GenerationJob CreateJob(DateTime createdAt, DateTime? consentGrantedAt, Guid portraitId)
         => new()
         {
             Id = Guid.NewGuid(),
             SceneId = Guid.NewGuid(),
             SessionId = Guid.NewGuid(),
-            PortraitId = Guid.NewGuid(),
+            PortraitId = portraitId,
             PortraitConsentGrantedAt = consentGrantedAt,
             Prompt = "Prompt",
             Status = JobStatus.Queued,
@@ -80,10 +98,10 @@ public class PortraitLikenessPolicyTests
             UpdatedAt = createdAt
         };
 
-    private static UserPortrait CreatePortrait(DateTime consentGrantedAt)
+    private static UserPortrait CreatePortrait(DateTime consentGrantedAt, Guid portraitId)
         => new()
         {
-            Id = Guid.NewGuid(),
+            Id = portraitId,
             UserId = Guid.NewGuid(),
             BlobName = "users/test/portrait",
             ContentType = "image/jpeg",

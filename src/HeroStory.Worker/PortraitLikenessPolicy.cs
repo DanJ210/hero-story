@@ -18,6 +18,11 @@ internal static class PortraitLikenessPolicy
 
     public static void ValidateForGeneration(GenerationJob job, UserPortrait portrait, DateTime nowUtc, TimeSpan maxAge)
     {
+        if (job.PortraitId != portrait.Id)
+        {
+            throw new ArtworkPolicyException(ArtworkErrorCode.PortraitProvenanceMismatch, "Portrait provenance no longer matches the active portrait.");
+        }
+
         if (job.PortraitConsentGrantedAt is null)
         {
             throw new ArtworkPolicyException(ArtworkErrorCode.PortraitConsentMissing, "Likeness provenance is missing consent timestamp.");

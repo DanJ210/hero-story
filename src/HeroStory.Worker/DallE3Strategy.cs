@@ -41,12 +41,12 @@ public class DallE3Strategy : IImageGeneratorStrategy
             byte[] imageBytes;
             if (job.PortraitId is Guid portraitId)
             {
-                var portrait = await _dbContext.UserPortraits.SingleOrDefaultAsync(
-                    candidate => candidate.Id == portraitId
-                        && candidate.UserId == scene.Session.UserId
+                var portrait = await _dbContext.UserPortraits
+                    .Where(candidate => candidate.UserId == scene.Session.UserId
                         && candidate.DeletedAt == null
-                        && candidate.DisabledAt == null,
-                    cancellationToken)
+                        && candidate.DisabledAt == null)
+                    .OrderByDescending(candidate => candidate.CreatedAt)
+                    .FirstOrDefaultAsync(cancellationToken)
                     ?? throw new ArtworkPolicyException(ArtworkErrorCode.PortraitUnavailable, "The consented portrait is no longer available.");
                 var maxReferenceAge = PortraitLikenessPolicy.ResolveReferenceMaxAge(_configuration);
                 PortraitLikenessPolicy.ValidateForGeneration(job, portrait, DateTime.UtcNow, maxReferenceAge);
