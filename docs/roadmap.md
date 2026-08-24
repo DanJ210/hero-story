@@ -51,6 +51,8 @@ Begin consent-driven hero-likeness personalization. The first phase isolates por
 - [ ] Phase 3: optional automatic likeness artwork, disable/replace flows, deletion semantics, and end-to-end policy tests.
    - [x] Slice 1: persist a default-off session likeness opt-in and attach active portrait provenance to automatic opening, major, climax, and conclusion artwork jobs.
    - [x] Slice 2: add portrait disable/replace flows and enforce active consented portrait provenance so stale queued likeness jobs fail closed.
+   - [ ] Slice 3: complete deletion semantics so portrait and account deletion remove superseded portrait blobs, settle outstanding likeness jobs, and apply a stated retention policy for artwork already generated from the deleted source.
+   - [ ] Slice 4: add end-to-end likeness policy tests covering missing consent, reference expiry, superseded scenes, and deletion during an in-flight job.
 
 ### Still deferred
 
