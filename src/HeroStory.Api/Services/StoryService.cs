@@ -25,7 +25,7 @@ public class StoryService : IStoryService
     public async Task<SessionDto?> GetSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
         => await _dbContext.StorySessions
             .Where(x => x.UserId == userId && x.Id == sessionId)
-            .Select(x => new SessionDto(x.Id, x.Title, x.Genre, x.HeroArchetype, x.HeroName, x.Status, x.ModerationFailureCount, x.CreatedAt, x.UpdatedAt))
+            .Select(x => new SessionDto(x.Id, x.Title, x.Genre, x.HeroArchetype, x.HeroName, x.Status, x.ModerationFailureCount, x.CreatedAt, x.UpdatedAt, x.LikenessEnabled))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<StoryWorkspaceDto?> GetWorkspaceAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
@@ -41,7 +41,7 @@ public class StoryService : IStoryService
             return null;
         }
 
-        var sessionDto = new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt);
+        var sessionDto = new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt, session.LikenessEnabled);
         var turns = session.Scenes.Where(scene => scene.IsActive).OrderBy(scene => scene.SequenceNumber).Select(SceneDtoMapper.ToDto).ToArray();
         return new StoryWorkspaceDto(sessionDto, turns);
     }
@@ -56,6 +56,7 @@ public class StoryService : IStoryService
             Genre = request.Genre,
             HeroArchetype = request.HeroArchetype,
             HeroName = request.HeroName,
+            LikenessEnabled = request.LikenessEnabled,
             Status = SessionStatus.Active,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -63,7 +64,7 @@ public class StoryService : IStoryService
 
         _dbContext.StorySessions.Add(session);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt);
+        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt, session.LikenessEnabled);
     }
 
     public async Task<SessionDto?> PatchSessionAsync(Guid userId, Guid sessionId, PatchSessionRequest request, CancellationToken cancellationToken)
@@ -85,7 +86,7 @@ public class StoryService : IStoryService
 
         session.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt);
+        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt, session.LikenessEnabled);
     }
 
     public async Task<SessionDto?> TransitionStatusAsync(Guid userId, Guid sessionId, SessionStatus status, CancellationToken cancellationToken)
@@ -109,7 +110,7 @@ public class StoryService : IStoryService
         session.Status = status;
         session.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt);
+        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt, session.LikenessEnabled);
     }
 
     public async Task<bool> DeleteSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)

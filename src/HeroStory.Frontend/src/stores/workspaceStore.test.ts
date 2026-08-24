@@ -18,7 +18,7 @@ describe("workspaceStore", () => {
     const opening = createTurn("scene-1", 1, "opening");
     const continuation = createTurn("scene-2", 2, "standard");
     const workspace: StoryWorkspaceDto = {
-      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z" },
+      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z", likenessEnabled: false },
       turns: [opening]
     };
     vi.mocked(sessionApi.getWorkspace).mockResolvedValue(workspace);
@@ -34,7 +34,7 @@ describe("workspaceStore", () => {
 
   it("refreshes artwork state without entering the blocking load state", async () => {
     const workspace: StoryWorkspaceDto = {
-      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z" },
+      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z", likenessEnabled: false },
       turns: [createTurn("scene-1", 1, "opening")]
     };
     vi.mocked(sessionApi.getWorkspace).mockResolvedValue(workspace);
@@ -52,7 +52,7 @@ describe("workspaceStore", () => {
     const originalLatest = createTurn("scene-2", 2, "standard");
     const replacement = createTurn("scene-3", 2, "standard");
     const initialWorkspace: StoryWorkspaceDto = {
-      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z" },
+      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z", likenessEnabled: false },
       turns: [opening, originalLatest]
     };
     const refreshedWorkspace: StoryWorkspaceDto = { ...initialWorkspace, turns: [opening, replacement] };
@@ -71,7 +71,7 @@ describe("workspaceStore", () => {
 
   it("pauses and resumes the episode while refreshing workspace status", async () => {
     const activeWorkspace: StoryWorkspaceDto = {
-      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z" },
+      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z", likenessEnabled: false },
       turns: [createTurn("scene-1", 1, "opening")]
     };
     const pausedWorkspace: StoryWorkspaceDto = { ...activeWorkspace, session: { ...activeWorkspace.session, status: "paused" } };
@@ -94,7 +94,7 @@ describe("workspaceStore", () => {
     const original = createTurn("scene-1", 1, "opening");
     const queued = { ...original, artworkStatus: "queued" as const };
     const workspace: StoryWorkspaceDto = {
-      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z" },
+      session: { id: "session-1", title: "Origin", genre: "Superhero", heroArchetype: "Guardian", heroName: "Ari", status: "active", moderationFailureCount: 0, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z", likenessEnabled: false },
       turns: [original]
     };
     vi.mocked(sessionApi.getWorkspace).mockResolvedValueOnce(workspace).mockResolvedValueOnce({ ...workspace, turns: [queued] });

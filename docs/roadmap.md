@@ -49,6 +49,7 @@ Begin consent-driven hero-likeness personalization. The first phase isolates por
    - [x] Resolve private portraits in the worker and send them directly as multipart input for manual image edits.
    - [x] Add provider-reference expiry/provenance policy and complete the manual likeness evaluation coverage.
 - [ ] Phase 3: optional automatic likeness artwork, disable/replace flows, deletion semantics, and end-to-end policy tests.
+   - [x] Slice 1: persist a default-off session likeness opt-in and attach active portrait provenance to automatic opening, major, climax, and conclusion artwork jobs.
 
 ### Still deferred
 

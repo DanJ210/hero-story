@@ -164,7 +164,7 @@ Creating a story session now generates and returns its opening turn from the sup
 
 The parser enforces the 250–500 word target, field lengths, 2–3 distinct suggestions, object-shaped state, and a 16 KB serialized state limit. Persisted context must use supported schema version 1.
 
-Artwork is requested automatically for opening, major, climax, and conclusion beats. Readers can also request artwork manually for any active-path scene and request another image after the prior job settles. Scene responses expose `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned` artwork status so clients poll only active work.
+Artwork is requested automatically for opening, major, climax, and conclusion beats. Automatic likeness use is an explicit, session-level opt-in and defaults off; opted-in automatic jobs require an active consented portrait and retain opaque portrait provenance. Readers can also request artwork manually for any active-path scene and request another image after the prior job settles. Scene responses expose `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned` artwork status so clients poll only active work.
 
 The frontend now presents ordered turns as one reader-first timeline, places user actions between passages, displays inline artwork states, offers suggestions, and keeps a persistent composer available. Latest stories can be resumed from a desktop rail or mobile drawer.
 

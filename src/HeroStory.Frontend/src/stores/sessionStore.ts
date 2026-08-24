@@ -7,6 +7,6 @@ export const useSessionStore = defineStore("sessions", {
   actions: {
     async loadSessions() { this.loading = true; try { this.sessions = await sessionApi.getSessions(); } finally { this.loading = false; } },
     async loadSession(sessionId: string) { this.currentSession = await sessionApi.getSession(sessionId); },
-    async createSession(payload: { title: string; genre: string; heroArchetype: string; heroName: string }) { this.creating = true; try { const result = await sessionApi.createSession(payload); this.sessions = await sessionApi.getSessions(); this.currentSession = result.session; return result; } finally { this.creating = false; } }
+    async createSession(payload: { title: string; genre: string; heroArchetype: string; heroName: string; likenessEnabled?: boolean }) { this.creating = true; try { const result = await sessionApi.createSession(payload); this.sessions = await sessionApi.getSessions(); this.currentSession = result.session; return result; } finally { this.creating = false; } }
   }
 });

@@ -90,6 +90,33 @@ public class SceneServiceTests
     }
 
     [Fact]
+    public async Task CreateSceneAsync_OptedInAutomaticLikenessStoresPortraitProvenance()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Automatic likeness");
+        session.LikenessEnabled = true;
+        session.Scenes.Add(CreatePreviousScene(session.Id, 1, "OPENING_STATE"));
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var portraitId = Guid.NewGuid();
+        var consentGrantedAt = DateTime.UtcNow;
+        var portraits = new Mock<IUserPortraitService>();
+        portraits.Setup(service => service.GetActiveReferenceAsync(session.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserPortraitReference(portraitId, consentGrantedAt));
+        var queue = CreateQueue();
+        var service = new SceneService(dbContext, CreateApprovedModeration().Object, CreateTextService(StoryBeat.Climax).Object, queue.Object, portraits.Object);
+
+        await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Face the threat"), CancellationToken.None);
+
+        var job = await dbContext.GenerationJobs.SingleAsync();
+        Assert.Equal(portraitId, job.PortraitId);
+        Assert.Equal(consentGrantedAt, job.PortraitConsentGrantedAt);
+        portraits.Verify(item => item.GetActiveReferenceAsync(session.UserId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task RequestArtworkAsync_QueuesManualRequestAndAllowsAnotherAfterCompletion()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;

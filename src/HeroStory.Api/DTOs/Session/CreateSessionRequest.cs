@@ -1,1 +1,1 @@
-namespace HeroStory.Api.DTOs.Session; public sealed record CreateSessionRequest(string Title, string Genre, string HeroArchetype, string HeroName);
+namespace HeroStory.Api.DTOs.Session; public sealed record CreateSessionRequest(string Title, string Genre, string HeroArchetype, string HeroName, bool LikenessEnabled = false);

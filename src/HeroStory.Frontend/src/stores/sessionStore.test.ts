@@ -35,7 +35,8 @@ const createStoryResult = (): CreateStorySessionResponse => ({
     status: "active",
     moderationFailureCount: 0,
     createdAt: "2026-08-14T00:00:00Z",
-    updatedAt: "2026-08-14T00:00:00Z"
+    updatedAt: "2026-08-14T00:00:00Z",
+    likenessEnabled: false
   },
   openingScene: {
     id: "scene-1",

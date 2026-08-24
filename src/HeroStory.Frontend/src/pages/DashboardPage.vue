@@ -9,6 +9,7 @@
       <input v-model="form.genre" placeholder="Genre" />
       <input v-model="form.heroArchetype" placeholder="Hero archetype" />
       <input v-model="form.heroName" placeholder="Hero name" />
+      <label><input v-model="form.likenessEnabled" type="checkbox" :disabled="!portraitUploaded" /> Use my private portrait for automatic beat artwork</label>
       <button type="submit" :disabled="sessionStore.creating">{{ sessionStore.creating ? "Beginning story..." : "Begin story" }}</button>
     </form>
     <p v-if="creationError" role="alert">{{ creationError }}</p>
@@ -47,7 +48,7 @@ const title = import.meta.env.VITE_APP_TITLE ?? "Hero Story";
 const router = useRouter();
 const authStore = useAuthStore();
 const sessionStore = useSessionStore();
-const form = reactive({ title: "", genre: "", heroArchetype: "", heroName: "" });
+const form = reactive({ title: "", genre: "", heroArchetype: "", heroName: "", likenessEnabled: false });
 const creationError = ref("");
 const portraitFile = ref<File | null>(null);
 const portraitConsent = ref(false);

@@ -214,6 +214,18 @@ public class SceneService : ISceneService
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
+        UserPortraitReference? automaticPortrait = null;
+        if (RequestsArtwork(storyBeat) && session.LikenessEnabled)
+        {
+            automaticPortrait = _userPortraitService is null
+                ? null
+                : await _userPortraitService.GetActiveReferenceAsync(session.UserId, cancellationToken);
+            if (automaticPortrait is null)
+            {
+                throw new InvalidOperationException("An active consented portrait is required for automatic likeness artwork.");
+            }
+        }
+
         GenerationJob? job = null;
         if (RequestsArtwork(storyBeat))
         {
@@ -222,6 +234,8 @@ public class SceneService : ISceneService
                 Id = Guid.NewGuid(),
                 SceneId = scene.Id,
                 SessionId = sessionId,
+                PortraitId = automaticPortrait?.Id,
+                PortraitConsentGrantedAt = automaticPortrait?.ConsentGrantedAt,
                 Prompt = prompt,
                 Status = JobStatus.Queued,
                 CreatedAt = DateTime.UtcNow,
