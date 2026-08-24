@@ -36,18 +36,19 @@ Persistence is centered on `AppDbContext` in `src/HeroStory.Infrastructure/Data/
 
 - Captures account/session deletion audit metadata.
 
-## Future `HeroPortrait` and consent records
+## `UserPortrait` and consent state
 
-Hero-likeness personalization is deferred until after the chat and selective-artwork flow. Do not add portrait bytes or source URLs to `StorySession` or `Scene`.
+Hero-likeness personalization is implemented. Portrait bytes and source URLs must never be added to `StorySession` or `Scene`.
 
-The future model should separate:
+The current model separates:
 
-- a private, user-owned portrait record with blob reference, version, status, timestamps, and retention/deletion state,
-- an immutable consent record covering purpose, policy version, provider scope, and user acknowledgement,
-- generated-asset provenance referencing the portrait version without exposing its blob location,
-- an audit trail for upload, use, replacement, disablement, export, and deletion.
+- `UserPortrait` — a private, user-owned record holding the blob reference, content metadata, `ConsentGrantedAt`, and `DisabledAt`/`DeletedAt` retention state. Uploading a replacement disables prior versions rather than mutating them, so version history is preserved.
+- `StorySession.LikenessEnabled` — a default-off, session-level opt-in.
+- `GenerationJob.PortraitId` and `GenerationJob.PortraitConsentGrantedAt` — opaque generated-asset provenance that lets the worker revalidate consent without exposing the blob location.
 
-Portrait deletion and account deletion must account for source blobs, derivative references, queued work, provider retention, and backup expiry.
+Consent is currently a timestamp on the portrait record rather than a separate immutable consent entity. A dedicated consent record covering purpose, policy version, and provider scope, plus an audit trail for upload, use, replacement, disablement, export, and deletion, is still outstanding.
+
+Portrait deletion and account deletion must account for source blobs across every portrait version, derivative references, queued work, provider retention, and backup expiry.
 
 ## Supporting enums
 

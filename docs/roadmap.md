@@ -20,7 +20,7 @@ This roadmap reflects expected progression from current MVP scaffold to producti
 
 ### Current milestone
 
-Begin consent-driven hero-likeness personalization. The first phase isolates portrait storage and consent from story generation; no portrait is used by the worker or provider until the privacy foundation is complete.
+Complete consent-driven hero-likeness personalization. Phases 1 and 2 established private portrait storage, consent, and provenance-checked manual artwork; Phase 3 has added automatic likeness artwork and disable/replace flows. The remaining work is deletion semantics and end-to-end policy coverage.
 
 ### Completed Milestones
 
