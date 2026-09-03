@@ -18,17 +18,20 @@ public class AuthService : IAuthService
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly AppDbContext _dbContext;
     private readonly IConfiguration _configuration;
+    private readonly IUserPortraitService _userPortraitService;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         AppDbContext dbContext,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IUserPortraitService userPortraitService)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _dbContext = dbContext;
         _configuration = configuration;
+        _userPortraitService = userPortraitService;
     }
 
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
@@ -126,6 +129,8 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Password confirmation failed.");
         }
 
+        var portraitPurge = await _userPortraitService.PurgeAsync(userId, cancellationToken);
+
         user.IsDeleted = true;
         user.DeletedAt = DateTime.UtcNow.AddDays(30);
         _dbContext.DeletionAuditLogs.Add(new DeletionAuditLog
@@ -136,7 +141,7 @@ public class AuthService : IAuthService
             ExecutedAt = DateTime.UtcNow.AddDays(30),
             SessionsRemoved = user.Sessions.Count,
             ScenesRemoved = user.Sessions.Sum(x => x.Scenes.Count),
-            BlobsRemoved = 0,
+            BlobsRemoved = portraitPurge.BlobsRemoved,
             HashedIp = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ipAddress)))
         });
 

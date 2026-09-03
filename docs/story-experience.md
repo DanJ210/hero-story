@@ -142,7 +142,7 @@ The feature must follow these boundaries:
 - Re-check consent when provider terms, model behavior, sharing scope, or use purpose changes.
 - Apply provider safety rules and block impersonation, public-figure misuse, non-consensual likeness use, and disallowed transformations.
 
-The user should be able to preview, replace, disable, and remove their likeness independently of deleting the story. Existing generated artwork needs an explicit product policy: either retain it as story output after source deletion or remove it as part of likeness deletion. That choice must be presented before consent.
+The user should be able to preview, replace, disable, and remove their likeness independently of deleting the story. Existing generated artwork follows a retain-output policy: deleting a portrait or account stops future likeness generation and settles in-flight likeness jobs, but already generated scene artwork remains as story output unless a separate story-deletion flow removes it. This policy must be presented before consent.
 
 ## UX direction
 

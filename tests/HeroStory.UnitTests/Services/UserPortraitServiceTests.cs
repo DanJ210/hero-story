@@ -1,6 +1,7 @@
 using System.Linq;
 using HeroStory.Api.Services;
 using HeroStory.Core.Entities;
+using HeroStory.Core.Enums;
 using HeroStory.Infrastructure.Data;
 using HeroStory.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -55,14 +56,22 @@ public class UserPortraitServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_DeletesLatestPortraitAndTurnsOffSessionLikenessOptIn()
+    public async Task DeleteAsync_PurgesAllPortraitVersionsAndSettlesOutstandingLikenessJobs()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
         await using var dbContext = new AppDbContext(options);
         var userId = Guid.NewGuid();
-        var portrait = CreatePortrait(userId, DateTime.UtcNow);
-        dbContext.UserPortraits.Add(portrait);
-        dbContext.StorySessions.Add(CreateSession(userId, likenessEnabled: true));
+        var supersededPortrait = CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-20));
+        supersededPortrait.DisabledAt = DateTime.UtcNow.AddMinutes(-10);
+        var latestPortrait = CreatePortrait(userId, DateTime.UtcNow);
+        dbContext.UserPortraits.AddRange(supersededPortrait, latestPortrait);
+        var session = CreateSession(userId, likenessEnabled: true);
+        dbContext.StorySessions.Add(session);
+        dbContext.GenerationJobs.AddRange(
+            CreateLikenessJob(session.Id, latestPortrait.Id, JobStatus.Queued),
+            CreateLikenessJob(session.Id, latestPortrait.Id, JobStatus.Processing),
+            CreateLikenessJob(session.Id, supersededPortrait.Id, JobStatus.Failed),
+            CreateLikenessJob(session.Id, supersededPortrait.Id, JobStatus.Completed));
         await dbContext.SaveChangesAsync();
         var blobService = CreateBlobService();
         var service = new UserPortraitService(dbContext, blobService.Object, CreateConfiguration());
@@ -70,10 +79,48 @@ public class UserPortraitServiceTests
         var deleted = await service.DeleteAsync(userId, CancellationToken.None);
 
         Assert.True(deleted);
-        Assert.NotNull(portrait.DisabledAt);
-        Assert.NotNull(portrait.DeletedAt);
+        Assert.All(dbContext.UserPortraits.Where(portrait => portrait.UserId == userId), portrait =>
+        {
+            Assert.NotNull(portrait.DisabledAt);
+            Assert.NotNull(portrait.DeletedAt);
+        });
         Assert.False(await dbContext.StorySessions.AnyAsync(session => session.UserId == userId && session.LikenessEnabled));
-        blobService.Verify(client => client.DeleteAsync("test-portraits", portrait.BlobName, It.IsAny<CancellationToken>()), Times.Once);
+        var settledJobs = await dbContext.GenerationJobs
+            .Where(job => job.PortraitId == latestPortrait.Id || job.PortraitId == supersededPortrait.Id)
+            .OrderBy(job => job.Status)
+            .ToListAsync();
+        Assert.Equal(3, settledJobs.Count(job => job.Status == JobStatus.Poisoned));
+        Assert.Single(settledJobs.Where(job => job.Status == JobStatus.Completed));
+        Assert.All(settledJobs.Where(job => job.Status == JobStatus.Poisoned), job =>
+        {
+            Assert.NotNull(job.CompletedAt);
+            Assert.Contains("PortraitDeleted", job.ErrorDetail);
+        });
+        blobService.Verify(client => client.DeleteAsync("test-portraits", supersededPortrait.BlobName, It.IsAny<CancellationToken>()), Times.Once);
+        blobService.Verify(client => client.DeleteAsync("test-portraits", latestPortrait.BlobName, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PurgeAsync_ReturnsCountsForDeletedPortraitsBlobsAndSettledJobs()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var userId = Guid.NewGuid();
+        var firstPortrait = CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-5));
+        var secondPortrait = CreatePortrait(userId, DateTime.UtcNow);
+        secondPortrait.BlobName = $"users/{userId}/portraits/second";
+        dbContext.UserPortraits.AddRange(firstPortrait, secondPortrait);
+        var session = CreateSession(userId, likenessEnabled: true);
+        dbContext.StorySessions.Add(session);
+        dbContext.GenerationJobs.Add(CreateLikenessJob(session.Id, secondPortrait.Id, JobStatus.Queued));
+        await dbContext.SaveChangesAsync();
+
+        var service = new UserPortraitService(dbContext, CreateBlobService().Object, CreateConfiguration());
+        var result = await service.PurgeAsync(userId, CancellationToken.None);
+
+        Assert.Equal(2, result.PortraitsDeleted);
+        Assert.Equal(2, result.BlobsRemoved);
+        Assert.Equal(1, result.JobsSettled);
     }
 
     private static UserPortrait CreatePortrait(Guid userId, DateTime createdAt)
@@ -100,6 +147,20 @@ public class UserPortraitServiceTests
             LikenessEnabled = likenessEnabled,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
+        };
+
+    private static GenerationJob CreateLikenessJob(Guid sessionId, Guid portraitId, JobStatus status)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            SceneId = Guid.NewGuid(),
+            SessionId = sessionId,
+            PortraitId = portraitId,
+            PortraitConsentGrantedAt = DateTime.UtcNow.AddMinutes(-1),
+            Prompt = "Portrait job",
+            Status = status,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-2),
+            UpdatedAt = DateTime.UtcNow.AddMinutes(-2)
         };
 
     private static Mock<AzureBlobService> CreateBlobService()

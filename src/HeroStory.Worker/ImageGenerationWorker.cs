@@ -59,9 +59,9 @@ public class ImageGenerationWorker : BackgroundService
             return;
         }
 
-        if (job.Status == JobStatus.Completed)
+        if (job.Status is JobStatus.Completed or JobStatus.Poisoned)
         {
-            _logger.LogInformation("Skipping already completed image job {JobId}.", job.Id);
+            _logger.LogInformation("Skipping terminal image job {JobId} with status {Status}.", job.Id, job.Status);
             await _queueClient.DeleteMessageAsync(message.MessageId, message.PopReceipt, cancellationToken);
             return;
         }
