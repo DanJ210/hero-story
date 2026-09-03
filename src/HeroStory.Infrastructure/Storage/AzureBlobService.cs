@@ -16,7 +16,7 @@ public class AzureBlobService
         _blobServiceClient = new BlobServiceClient(connectionString);
     }
 
-    public async Task<string> UploadAsync(string containerName, string blobName, Stream content, string contentType, CancellationToken cancellationToken)
+    public virtual async Task<string> UploadAsync(string containerName, string blobName, Stream content, string contentType, CancellationToken cancellationToken)
     {
         var container = _blobServiceClient.GetBlobContainerClient(containerName);
         await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
@@ -26,7 +26,7 @@ public class AzureBlobService
         return blobClient.Uri.ToString();
     }
 
-    public string GenerateSasUrl(string containerName, string blobName)
+    public virtual string GenerateSasUrl(string containerName, string blobName)
     {
         var expiryHours = int.TryParse(_configuration["AZURE_BLOB_SAS_EXPIRY_HOURS"], out var parsed) ? parsed : 24;
         var container = _blobServiceClient.GetBlobContainerClient(containerName);
@@ -47,14 +47,14 @@ public class AzureBlobService
         return blobClient.GenerateSasUri(sas).ToString();
     }
 
-    public Task DeleteAsync(string containerName, string blobName, CancellationToken cancellationToken)
+    public virtual Task DeleteAsync(string containerName, string blobName, CancellationToken cancellationToken)
     {
         var container = _blobServiceClient.GetBlobContainerClient(containerName);
         var blobClient = container.GetBlobClient(blobName);
         return blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
     }
 
-    public async Task<Stream> DownloadAsync(string containerName, string blobName, CancellationToken cancellationToken)
+    public virtual async Task<Stream> DownloadAsync(string containerName, string blobName, CancellationToken cancellationToken)
     {
         var container = _blobServiceClient.GetBlobContainerClient(containerName);
         var blobClient = container.GetBlobClient(blobName);

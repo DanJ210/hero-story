@@ -124,9 +124,9 @@ Artwork is selective to control latency, cost, and visual repetition. Generate i
 
 The structured `storyBeat` value drives this decision. Image generation remains asynchronous and must not block the narrative response.
 
-## Deferred hero-likeness personalization
+## Hero-likeness personalization
 
-After the conversational story flow and selective-artwork pipeline are functioning, a user may optionally provide a portrait so generated artwork can depict the hero with their likeness. This is an opt-in personalization feature, not an MVP dependency and never a requirement for using the story experience.
+A user may optionally provide a portrait so generated artwork can depict the hero with their likeness. This is an opt-in personalization feature, never a requirement for using the story experience.
 
 The feature must follow these boundaries:
 

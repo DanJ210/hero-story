@@ -82,7 +82,9 @@ public class ImageGenerationWorker : BackgroundService
         {
             _logger.LogError(ex, "Image generation failed for job {JobId}", job.Id);
             job.Status = message.DequeueCount >= _options.MaxDequeueCount ? JobStatus.Poisoned : JobStatus.Failed;
-            job.ErrorDetail = ex.Message;
+            job.ErrorDetail = ex is ArtworkPolicyException policyException
+                ? $"{policyException.Code}: {policyException.Message}"
+                : ex.Message;
             job.UpdatedAt = DateTime.UtcNow;
             await dbContext.SaveChangesAsync(cancellationToken);
             if (message.DequeueCount >= _options.MaxDequeueCount)

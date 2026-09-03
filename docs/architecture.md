@@ -40,7 +40,7 @@ Continuity is an application-owned contract, not an unbounded chat transcript. T
 
 Generation requests should use the minimum relevant context. Structured model responses must be schema-validated; do not parse narrative prose to recover state.
 
-## Future likeness boundary
+## Likeness boundary
 
 Optional hero-likeness personalization is a separate privacy boundary from narrative state and generated artwork. Source portraits belong in private, ownership-scoped storage and must not be embedded in `StorySession`, `Scene`, queue payloads, logs, or public asset containers.
 
@@ -54,7 +54,7 @@ The first likeness phase now owns consent, private portrait metadata, replacemen
 - Middleware for correlation ID and exception handling.
 - Content moderation service invoked before creating unsafe content.
 - Revision and continuation endpoints enforce the same user ownership checks as reads and creation.
-- Future likeness upload, use, replacement, and deletion require explicit consent and ownership checks independent of story ownership.
+- Likeness upload, use, replacement, and deletion require explicit consent and ownership checks independent of story ownership.
 
 ## Deployment shape (target)
 

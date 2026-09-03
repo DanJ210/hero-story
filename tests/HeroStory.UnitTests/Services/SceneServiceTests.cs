@@ -117,6 +117,31 @@ public class SceneServiceTests
     }
 
     [Fact]
+    public async Task CreateSceneAsync_OptedInAutomaticLikenessRejectsWithoutActivePortrait()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Automatic likeness without portrait");
+        session.LikenessEnabled = true;
+        session.Scenes.Add(CreatePreviousScene(session.Id, 1, "OPENING_STATE"));
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var portraits = new Mock<IUserPortraitService>();
+        portraits.Setup(service => service.GetActiveReferenceAsync(session.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(null as UserPortraitReference);
+        var queue = CreateQueue();
+        var service = new SceneService(dbContext, CreateApprovedModeration().Object, CreateTextService(StoryBeat.Climax).Object, queue.Object, portraits.Object);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Face the threat"), CancellationToken.None));
+
+        Assert.Contains("active consented portrait", exception.Message);
+        Assert.Empty(dbContext.GenerationJobs);
+        queue.Verify(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task RequestArtworkAsync_QueuesManualRequestAndAllowsAnotherAfterCompletion()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
