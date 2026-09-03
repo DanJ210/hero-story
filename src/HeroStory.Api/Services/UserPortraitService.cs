@@ -138,10 +138,11 @@ public class UserPortraitService : IUserPortraitService
         var optedInSessions = await _dbContext.StorySessions
             .Where(session => session.UserId == userId && session.LikenessEnabled)
             .ToListAsync(cancellationToken);
+        var now = DateTime.UtcNow;
         foreach (var session in optedInSessions)
         {
             session.LikenessEnabled = false;
-            session.UpdatedAt = DateTime.UtcNow;
+            session.UpdatedAt = now;
         }
     }
 }
