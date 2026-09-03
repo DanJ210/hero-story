@@ -39,7 +39,7 @@ public class DallE3Strategy : IImageGeneratorStrategy
 
             var imagePrompt = GenerateImagePrompt(scene);
             byte[] imageBytes;
-            if (job.PortraitId is Guid portraitId)
+            if (job.PortraitId is not null)
             {
                 var portrait = await _dbContext.UserPortraits
                     .Where(candidate => candidate.UserId == scene.Session.UserId
