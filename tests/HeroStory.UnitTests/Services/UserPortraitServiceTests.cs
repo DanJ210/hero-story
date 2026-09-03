@@ -61,11 +61,12 @@ public class UserPortraitServiceTests
         var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
         await using var dbContext = new AppDbContext(options);
         var userId = Guid.NewGuid();
-        var supersededPortrait = CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-20));
-        supersededPortrait.DisabledAt = DateTime.UtcNow.AddMinutes(-10);
-        var latestPortrait = CreatePortrait(userId, DateTime.UtcNow);
-        dbContext.UserPortraits.AddRange(supersededPortrait, latestPortrait);
-        var session = CreateSession(userId, likenessEnabled: true);
+var supersededPortrait = CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-20));
+supersededPortrait.BlobName = $"users/{userId}/portraits/superseded";
+supersededPortrait.DisabledAt = DateTime.UtcNow.AddMinutes(-10);
+var latestPortrait = CreatePortrait(userId, DateTime.UtcNow);
+latestPortrait.BlobName = $"users/{userId}/portraits/latest";
+dbContext.UserPortraits.AddRange(supersededPortrait, latestPortrait);
         dbContext.StorySessions.Add(session);
         dbContext.GenerationJobs.AddRange(
             CreateLikenessJob(session.Id, latestPortrait.Id, JobStatus.Queued),
