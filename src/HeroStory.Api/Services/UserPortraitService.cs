@@ -1,4 +1,5 @@
 using HeroStory.Core.Entities;
+using HeroStory.Core.Enums;
 using HeroStory.Infrastructure.Data;
 using HeroStory.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -69,22 +70,65 @@ public class UserPortraitService : IUserPortraitService
 
     public async Task<bool> DeleteAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var portrait = await _dbContext.UserPortraits
+        var hasPortrait = await _dbContext.UserPortraits
             .Where(candidate => candidate.UserId == userId && candidate.DeletedAt == null)
-            .OrderByDescending(candidate => candidate.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (portrait is null)
+            .AnyAsync(cancellationToken);
+        if (!hasPortrait)
         {
             return false;
         }
 
+        await PurgeAsync(userId, cancellationToken);
+        return true;
+    }
+
+    public async Task<PortraitPurgeResult> PurgeAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var portraits = await _dbContext.UserPortraits
+            .Where(candidate => candidate.UserId == userId && candidate.DeletedAt == null)
+            .OrderByDescending(candidate => candidate.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var blobNames = portraits
+            .Select(portrait => portrait.BlobName)
+            .Where(blobName => !string.IsNullOrWhiteSpace(blobName))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var now = DateTime.UtcNow;
         var containerName = _configuration["AZURE_BLOB_PORTRAITS_CONTAINER"] ?? "hero-story-portraits";
-        await _blobService.DeleteAsync(containerName, portrait.BlobName, cancellationToken);
-        portrait.DisabledAt = DateTime.UtcNow;
-        portrait.DeletedAt = DateTime.UtcNow;
+        foreach (var blobName in blobNames)
+        {
+            await _blobService.DeleteAsync(containerName, blobName, cancellationToken);
+        }
+
+        foreach (var portrait in portraits)
+        {
+            portrait.DisabledAt ??= now;
+            portrait.DeletedAt = now;
+        }
+
+        var userSessionIds = await _dbContext.StorySessions
+            .Where(session => session.UserId == userId)
+            .Select(session => session.Id)
+            .ToListAsync(cancellationToken);
+
+        var outstandingJobs = await _dbContext.GenerationJobs
+            .Where(job => job.PortraitId.HasValue
+                && userSessionIds.Contains(job.SessionId)
+                && (job.Status == JobStatus.Queued || job.Status == JobStatus.Processing || job.Status == JobStatus.Failed))
+            .ToListAsync(cancellationToken);
+        foreach (var job in outstandingJobs)
+        {
+            job.Status = JobStatus.Poisoned;
+            job.CompletedAt ??= now;
+            job.ErrorDetail = "PortraitDeleted: Likeness source was deleted before artwork generation completed.";
+            job.UpdatedAt = now;
+        }
+
         await DisableSessionLikenessAsync(userId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+
+        return new PortraitPurgeResult(portraits.Count, blobNames.Count, outstandingJobs.Count);
     }
 
     public async Task<bool> DisableAsync(Guid userId, CancellationToken cancellationToken)
