@@ -1,0 +1,46 @@
+name: "Copilot code review setup steps"
+
+# Prepares the ephemeral environment used by GitHub Copilot code review so the
+# reviewer can build, type-check, and run tests for this repository.
+# This file takes precedence over copilot-setup-steps.yml for code review.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-code-review.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-code-review.yml
+
+jobs:
+  # The job MUST be named copilot-setup-steps or it will not be picked up.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore .NET dependencies
+        run: dotnet restore hero-story.sln
+
+      - name: Build solution
+        run: dotnet build hero-story.sln --no-restore
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/HeroStory.Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm --prefix src/HeroStory.Frontend ci

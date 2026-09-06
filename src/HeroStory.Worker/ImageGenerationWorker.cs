@@ -38,7 +38,7 @@ public class ImageGenerationWorker : BackgroundService
         }
     }
 
-    private async Task ProcessMessageAsync(QueueMessage message, CancellationToken cancellationToken)
+    internal async Task ProcessMessageAsync(QueueMessage message, CancellationToken cancellationToken)
     {
         if (message.DequeueCount > _options.MaxDequeueCount)
         {
