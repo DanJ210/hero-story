@@ -56,6 +56,6 @@ Secrets and external services are unavailable. Do not call OpenAI, Azure Storage
 ## 4. Report
 
 - Attach each finding to the specific changed line that causes it.
-- Assign severity: high for build/test failures, auth or ownership gaps, leaked secrets, and missing migrations; medium for cross-layer contract mismatches and version drift; low for everything else.
+- Assign severity: high for build/test failures caused by the diff (see step 3 for pre-existing or unconfirmed failures), auth or ownership gaps, leaked secrets, and missing migrations; medium for cross-layer contract mismatches and version drift; low for everything else.
 - State the fix concretely enough to apply, and prefer a suggested change when the fix is a small edit.
 - If the diff is clean, say so rather than manufacturing comments.
