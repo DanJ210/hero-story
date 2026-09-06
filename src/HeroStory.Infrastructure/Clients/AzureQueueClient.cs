@@ -25,9 +25,9 @@ public class AzureQueueClient
     /// <summary>Test-double constructor; the public constructor provisions queues over the network.</summary>
     protected AzureQueueClient()
     {
-        _configuration = null!;
-        _queueClient = null!;
-        _poisonQueueClient = null!;
+        _configuration = new ConfigurationBuilder().Build();
+        _queueClient = new QueueClient("UseDevelopmentStorage=true", "unit-test-image-generation-jobs");
+        _poisonQueueClient = new QueueClient("UseDevelopmentStorage=true", "unit-test-image-generation-jobs-poison");
     }
 
     public virtual Task EnqueueAsync(string message, CancellationToken cancellationToken)
