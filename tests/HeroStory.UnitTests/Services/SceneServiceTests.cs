@@ -6,7 +6,6 @@ using HeroStory.Core.Enums;
 using HeroStory.Infrastructure.Clients;
 using HeroStory.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Moq;
 
 namespace HeroStory.UnitTests.Services;
@@ -45,7 +44,7 @@ public class SceneServiceTests
             ["Climb the ridge", "Search for shelter"],
             StoryBeat.Major,
             false));
-        var queue = new Mock<AzureQueueClient>(new ConfigurationBuilder().AddInMemoryCollection().Build());
+        var queue = new Mock<AzureQueueClient>();
         queue.Setup(x => x.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var service = new SceneService(dbContext, moderation.Object, text.Object, queue.Object);
@@ -549,7 +548,7 @@ public class SceneServiceTests
 
     private static Mock<AzureQueueClient> CreateQueue()
     {
-        var queue = new Mock<AzureQueueClient>(new ConfigurationBuilder().AddInMemoryCollection().Build());
+        var queue = new Mock<AzureQueueClient>();
         queue.Setup(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         return queue;
     }
