@@ -22,6 +22,14 @@ public class AzureQueueClient
         _poisonQueueClient.CreateIfNotExists();
     }
 
+    /// <summary>Test-double constructor; the public constructor provisions queues over the network.</summary>
+    protected AzureQueueClient()
+    {
+        _configuration = null!;
+        _queueClient = null!;
+        _poisonQueueClient = null!;
+    }
+
     public virtual Task EnqueueAsync(string message, CancellationToken cancellationToken)
         => _queueClient.SendMessageAsync(message, cancellationToken: cancellationToken);
 
