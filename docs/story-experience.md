@@ -158,7 +158,7 @@ The user should be able to preview, replace, disable, and remove their likeness 
 - Keep the active story path readable as a continuous episode.
 - Treat image status as secondary to reading and decision-making.
 
-## Current implementation gap
+## Current implementation status
 
 Creating a story session now generates and returns its opening turn from the supplied hero/session details; users are not left with an empty session. The current implementation validates a structured JSON model response and persists narrative, summary, location, active conflict, schema-versioned story state, 2–3 suggested actions, story-beat classification, and episode-completion status per `Scene`. Each subsequent turn receives the latest accepted scene summary, location, conflict, state, and narrative passage as bounded continuity context.
 
@@ -170,7 +170,7 @@ The frontend now presents ordered turns as one reader-first timeline, places use
 
 The application preserves immutable latest-turn revisions and returns the active path by default. The workspace exposes an inline revision editor only for the latest active turn, warns that the prior version remains in history, and returns focus to the replacement turn. Readers can pause and resume an active episode, request a conclusion, and continue reading a completed active path; completed or paused episodes do not accept new actions. Malformed structured-turn responses retry within a bounded configurable policy with validation-attempt logging, and generation prompts include bounded summaries and state markers from older active turns while preserving the latest passage in full. Failed artwork jobs retry through bounded queue redelivery, while completed jobs are skipped on redelivery.
 
-These gaps are implementation work, not completed behavior. Delivery sequencing is tracked in [roadmap.md](roadmap.md).
+Hero-likeness personalization is available as an opt-in feature. Users can upload a consented private portrait, enable likeness on a session for automatic beat artwork, request likeness on a single manual artwork request, and replace, disable, or delete the portrait at any time. Multi-turn summary compaction and revision of older turns remain outstanding. Delivery sequencing is tracked in [roadmap.md](roadmap.md).
 
 ## MVP acceptance criteria
 

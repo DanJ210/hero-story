@@ -83,11 +83,25 @@ Typical repository commands:
 - Development auth must issue normal JWT and refresh tokens for a persisted development user so authorization and ownership checks remain exercised. Never weaken or replace production authentication to support local testing.
 - `DB_APPLY_MIGRATIONS=true` applies committed EF Core migrations during API startup. Add a migration when the persistent model changes and validate it with the SQL Server provider.
 
+## Agents and work handoff
+
+Custom agents live in `.github/agents/`. Pick the one that matches the work, and hand off rather than expanding the current session's scope:
+
+- `hero-story-workflow` — environment reset, choosing the next roadmap slice, and end-to-end validation passes. No feature code.
+- `hero-story-slice-implementer` — implementing exactly one roadmap slice across domain, persistence, API, worker, frontend, and tests.
+- `hero-story-docs-steward` — realigning `docs/` and the README with shipped behavior, either as an audit or as a handoff after a completed slice.
+
+Expected handoff order for a feature: `hero-story-workflow` selects and validates the slice, `hero-story-slice-implementer` builds it, then `hero-story-docs-steward` updates the affected docs and roadmap. Any agent finishing code work should hand the change to `hero-story-docs-steward` with the layers touched, new or changed routes, DTO fields, entity properties, migrations, and configuration keys, plus what remains outstanding.
+
+The `code-review` skill in `.github/skills/` covers reviewing a diff before merge and is not a substitute for the docs handoff.
+
 ## Documentation guidance
 
 - Keep README and docs updated when architecture, workflows, or setup materially change.
 - When adding or changing behavior, update the relevant docs page in `docs/` and link from the README if needed.
-- Use the handoff package in `docs/handoff-plan.md` as the baseline product and engineering specification.
+- Documentation updates are part of the definition of done for a slice, not a later cleanup pass.
+- Use the handoff package in `docs/handoff-plan.md` as the baseline product and engineering specification. Treat it as a frozen baseline; track slice progress in `docs/roadmap.md` instead.
+- Never describe a capability as implemented until it is verifiable in code. Never leave a doc describing shipped behavior as "planned" or "target behavior".
 
 ## Non-goals
 

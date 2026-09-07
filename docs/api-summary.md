@@ -23,12 +23,31 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 - `DELETE /api/auth/account`
   - Authenticated account deletion request.
   - Returns `202 Accepted`.
+
+## Profile portrait endpoints (`/api/profile/portrait`)
+
+All routes require authentication and are scoped to the calling user. Portrait blobs live in a private container and are never returned as public URLs.
+
+- `GET /api/profile/portrait`
+  - Returns the active portrait metadata, or `404` when none is active.
+- `POST /api/profile/portrait`
+  - Multipart upload of `file` plus a `consentGranted` form field; rejects uploads without consent.
+  - Limited to 10 MB. Uploading a replacement disables prior versions instead of mutating them.
+  - Returns `201 Created` with portrait metadata.
+- `POST /api/profile/portrait/disable`
+  - Disables the active portrait, clears session likeness opt-ins, and fails stale queued likeness jobs closed.
+  - Returns `204 No Content`, or `404` when no active portrait exists.
+- `DELETE /api/profile/portrait`
+  - Deletes portrait blobs across versions and settles outstanding likeness jobs. Artwork already generated is retained as story output.
+  - Returns `204 No Content`, or `404` when no active portrait exists.
+
 ## Story session endpoints (`/api/sessions`)
 
 - `GET /api/sessions`
   - Lists current user's sessions.
 - `POST /api/sessions`
   - Creates a session and immediately generates its opening story turn from the supplied title, genre, hero archetype, and hero name.
+  - Accepts an optional `likenessEnabled` flag, defaulting to `false`, that opts the session into automatic likeness artwork.
   - Returns `201 Created` with `{ session, openingScene }`.
   - Removes the newly created session if opening generation fails, preventing empty stories from remaining in the session list.
 - `GET /api/sessions/{id}`
@@ -69,15 +88,16 @@ Scene detail and list responses include an `artworkStatus` value: `notRequested`
 
 - `POST /api/sessions/{id}/scenes/{sceneId}/artwork`
   - Queues an optional artwork request for an owned active scene.
+  - Accepts a `usePortrait` query flag that opts the single request into likeness generation; it requires an active consented portrait and defaults to off.
   - Allows a new request after the prior job has completed, failed, or been poisoned, preserving each job as history.
   - Rejects a duplicate request while the scene already has queued or processing artwork.
 
+Session responses include `likenessEnabled`. Session status values are `active`, `paused`, `completed`, `archived`, and `pendingDeletion`; paused and completed episodes reject new contributions while remaining readable.
+
 ### Remaining interactive-turn contract (planned)
 
-The existing scene routes remain the compatibility surface while `Scene` evolves into an interactive story turn. These behaviors and routes are not yet implemented:
+These behaviors are not yet implemented:
 
-- `POST /api/sessions/{id}/scenes`
-  - Add an optional request to conclude the episode and optimistic conflict handling. The latest accepted turn is already supplied as continuity context.
 - `GET /api/sessions/{id}/scenes/{sceneId}/revisions`
   - Returns revision history for an owned turn when revision-history UI is implemented.
 

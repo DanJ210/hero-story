@@ -23,7 +23,7 @@ This document describes the intended target architecture and how the current sca
 - API moderates generated prose, persists the new immutable turn on the active path, and returns it without waiting for artwork.
 - Revision creates a replacement turn from the preceding accepted turn and marks the prior latest version as superseded; it does not overwrite historical content in place.
 
-The current implementation validates and persists the structured generation result alongside `ChoiceText` and `NarrativeText`. It supplies the latest accepted summary, location, conflict, schema-versioned state, and narrative passage to the next request. It creates image jobs automatically for opening, major, climax, and conclusion beats, and on reader request for any active scene, while exposing derived artwork status to clients. Revision history, multi-turn summary compaction, and automatic image retry remain planned work.
+The current implementation validates and persists the structured generation result alongside `ChoiceText` and `NarrativeText`. It supplies the latest accepted summary, location, conflict, schema-versioned state, and narrative passage to the next request, plus bounded summaries and state markers from older active-path turns. It creates image jobs automatically for opening, major, climax, and conclusion beats, and on reader request for any active scene, while exposing derived artwork status to clients. Immutable latest-turn revision and bounded artwork retry are implemented; revision-history reads and multi-turn summary compaction remain planned work.
 
 ### Asynchronous path (worker-facing)
 
@@ -44,7 +44,7 @@ Generation requests should use the minimum relevant context. Structured model re
 
 Optional hero-likeness personalization is a separate privacy boundary from narrative state and generated artwork. Source portraits belong in private, ownership-scoped storage and must not be embedded in `StorySession`, `Scene`, queue payloads, logs, or public asset containers.
 
-The first likeness phase now owns consent, private portrait metadata, replacement/disablement, and deletion. Phase 2 records an opaque portrait ID and consent timestamp on opted-in manual artwork jobs; the worker resolves the private blob, validates provenance, enforces bounded provider-reference age, normalizes source encoding, and sends the image directly to the provider's manual image-edit endpoint. Phase 3 slice 1 adds a default-off, session-level opt-in for automatic likeness artwork on opening, major, climax, and conclusion beats; those jobs use the same opaque provenance boundary.
+The first likeness phase owns consent, private portrait metadata, replacement/disablement, and deletion. Phase 2 records an opaque portrait ID and consent timestamp on opted-in manual artwork jobs; the worker resolves the private blob, validates provenance, enforces bounded provider-reference age, normalizes source encoding, and sends the image directly to the provider's manual image-edit endpoint. Phase 3 adds a default-off, session-level opt-in for automatic likeness artwork on opening, major, climax, and conclusion beats, portrait disable/replace flows that fail stale queued likeness jobs closed, and deletion semantics that remove superseded portrait blobs and settle outstanding likeness jobs under a retain-output policy for artwork already generated.
 
 ## Security and control surfaces
 

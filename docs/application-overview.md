@@ -15,7 +15,7 @@ The application demonstrates an end-to-end architecture for:
 - selective asynchronous artwork for major story beats,
 - cloud-aligned storage patterns (SQL, queue, blob).
 
-The product and acceptance contract is defined in [story-experience.md](story-experience.md). The current implementation persists validated structured turn output, feeds the latest accepted turn into the next bounded prompt, dispatches qualifying artwork automatically, permits manual artwork requests per active scene, and retries failed artwork jobs without repeating completed generation. Revision history and multi-turn summary compaction remain roadmap work.
+The product and acceptance contract is defined in [story-experience.md](story-experience.md). The current implementation persists validated structured turn output, feeds bounded active-path continuity into the next prompt, dispatches qualifying artwork automatically, permits manual artwork requests per active scene, retries failed artwork jobs without repeating completed generation, and supports consent-driven hero-likeness personalization. Revision-history reads and multi-turn summary compaction remain roadmap work.
 
 Session creation is the beginning of the reading experience: the API generates an opening turn from the submitted hero details and returns it with the new session.
 
@@ -40,9 +40,11 @@ Some production-hardening and deployment assets are still roadmap items. See [ro
    - create/list/read/update/delete user-scoped hero stories and track the active episode.
 3. **Scene lifecycle**
    - accept a user contribution and produce the next narrative turn on the active story path.
-   - target behavior supports suggestions, continuity state, latest-turn revision, and episode completion.
+   - supports suggestions, continuity state, non-destructive latest-turn revision, and episode completion.
 4. **Image generation jobs**
    - enqueue and process selected story-beat artwork with retry handling.
+5. **Hero-likeness personalization**
+   - consent-gated private portrait upload, replacement, disablement, and deletion, with opaque provenance on likeness artwork jobs.
 
 ## How this document relates to other docs
 

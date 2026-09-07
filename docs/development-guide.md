@@ -66,13 +66,17 @@ The endpoint creates or reuses the user configured by `DEV_AUTH_EMAIL` and issue
 
 - Unit tests: `dotnet test tests/HeroStory.UnitTests/HeroStory.UnitTests.csproj`
 - Integration tests: `dotnet test tests/HeroStory.IntegrationTests/HeroStory.IntegrationTests.csproj`
+- Frontend tests: `npm --prefix src/HeroStory.Frontend run test`
+- Frontend type check: `npm --prefix src/HeroStory.Frontend run lint`
 
 ## Scaffold conventions
 
 - API business logic lives in services, not controllers.
 - Infrastructure adapters are in `HeroStory.Infrastructure`.
 - Worker strategy selection is controlled by `IMAGE_STRATEGY` (for example `placeholder` or `dalle3`).
-- Queue retries and poison handling are controlled through `AZURE_QUEUE_*` settings.
+- Queue retries and poison handling are controlled through `AZURE_QUEUE_*` settings. Keep the worker's `AZURE_QUEUE_VISIBILITY_TIMEOUT_SECONDS` above observed image-provider latency so redelivery does not duplicate in-flight generation.
+- Private portraits are stored in the container named by `AZURE_BLOB_PORTRAITS_CONTAINER`, which must be a private container separate from `AZURE_BLOB_IMAGES_CONTAINER`. The API and worker must resolve the same container name.
+- The worker bounds how long a portrait may be used as a provider reference through `LIKENESS_PROVIDER_REFERENCE_MAX_AGE_MINUTES`; expired or provenance-mismatched jobs fail closed.
 
 ## Documentation workflow
 
