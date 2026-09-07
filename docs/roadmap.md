@@ -60,7 +60,7 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 
 ## Near-term (MVP completion)
 
-1. Add vertical-slice tests proving automatic artwork retry and completed-job idempotency.
+- [x] Add vertical-slice tests proving automatic artwork retry and completed-job idempotency.
 
 ## Mid-term (production readiness)
 

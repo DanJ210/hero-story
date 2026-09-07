@@ -1,3 +1,5 @@
+using System.Threading;
+using HeroStory.Infrastructure.Clients;
 using HeroStory.Infrastructure.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -30,7 +32,21 @@ public class ApiFixture : WebApplicationFactory<Program>
                 services.Remove(descriptor);
             }
             services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(_databaseName));
+
+            var queueDescriptors = services
+                .Where(service => service.ServiceType == typeof(AzureQueueClient))
+                .ToList();
+            foreach (var descriptor in queueDescriptors)
+            {
+                services.Remove(descriptor);
+            }
+            services.AddSingleton<AzureQueueClient, TestAzureQueueClient>();
         });
+    }
+
+    private sealed class TestAzureQueueClient : AzureQueueClient
+    {
+        public override Task EnqueueAsync(string message, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }
 
