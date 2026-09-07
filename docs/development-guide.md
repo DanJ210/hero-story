@@ -69,7 +69,7 @@ The endpoint creates or reuses the user configured by `DEV_AUTH_EMAIL` and issue
 - Frontend tests: `npm --prefix src/HeroStory.Frontend run test`
 - Frontend type check: `npm --prefix src/HeroStory.Frontend run lint`
 
-## Scaffold conventions
+## Project conventions
 
 - API business logic lives in services, not controllers.
 - Infrastructure adapters are in `HeroStory.Infrastructure`.
@@ -80,13 +80,15 @@ The endpoint creates or reuses the user configured by `DEV_AUTH_EMAIL` and issue
 
 ## Documentation workflow
 
-When adding or changing functionality:
+Every fact has exactly one home. When adding or changing functionality:
 
-1. Update endpoint or flow details in [api-summary.md](api-summary.md).
-2. Update architecture or data changes in [architecture.md](architecture.md) and [data-model.md](data-model.md).
-3. Keep README index links in sync.
+1. Record completion or new deferrals in [roadmap.md](roadmap.md); it is the only page that tracks status.
+2. Describe the behavior in present tense on the owning page: [api-summary.md](api-summary.md) for routes and contracts, [architecture.md](architecture.md) for flow and boundaries, [data-model.md](data-model.md) for entities and migrations.
+3. Update [story-experience.md](story-experience.md) only when the product contract itself changes.
+4. Add new configuration keys, secrets, containers, or commands to this guide.
+5. Keep the index in [application-overview.md](application-overview.md) and the README links in sync.
 
 ## Related docs
 
-- Project orientation: [application-overview.md](application-overview.md)
-- Long-term direction: [roadmap.md](roadmap.md)
+- Doc index: [application-overview.md](application-overview.md)
+- Delivery status: [roadmap.md](roadmap.md)

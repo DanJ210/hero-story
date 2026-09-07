@@ -2,90 +2,55 @@
 
 **Version:** 1.0  
 **Date:** Aug 12, 2026  
-**Status:** Baseline specification for this repository
+**Status:** Frozen baseline. Amend only when the product contract itself changes, and bump the version when you do.
 
-This page summarizes the official handoff package that kicked off implementation. It should be treated as the baseline product and architecture specification against which scaffold progress is tracked.
+This page records the baseline agreed at project kickoff. It is a historical reference for original scope and intent, not a description of current behavior. Diff proposed work against it to detect scope drift.
 
 ## Baseline statement
 
 The handoff package defines the authoritative MVP scope, target architecture, service boundaries, and delivery expectations for Hero Story. Current code should align to this baseline while allowing iterative implementation details.
 
-## Product-direction addendum
+## Baseline MVP scope
 
-The interactive experience has been refined without changing the baseline architecture:
+In scope:
 
-- The user is the superhero and primary protagonist.
-- The story advances one conversational turn at a time rather than generating a full novel.
-- Each turn produces approximately 250–500 words of book-like prose.
-- Users can provide free-text actions or select from 2–3 optional suggestions.
-- User decisions must create observable consequences and update explicit continuity state.
-- Users can revise the latest active turn; revisions preserve prior versions and move the active story path to the replacement.
-- Artwork is asynchronous and selective, reserved for opening scenes and major story beats.
-- Episodes have explicit completion state and can be paused or resumed.
-- Optional use of the user's own likeness in hero artwork is a post-chat-flow capability and must be consent-driven, privacy-isolated, and removable.
+- authentication and account lifecycle,
+- user-owned story sessions,
+- scene creation through moderated text generation,
+- asynchronous image generation through a queue and worker.
 
-The detailed product, turn, revision, and acceptance contracts are maintained in [story-experience.md](story-experience.md). Where the original baseline is broad, that document controls the current product interpretation. Current code must not be described as implementing target behavior until the corresponding roadmap work is complete.
+Deferred beyond the MVP:
 
-## Section-by-section summary
+- collaboration and shared authoring,
+- deep personalization,
+- non-critical platform integrations.
 
-## 1. Product vision and goals
+## Baseline architecture commitments
 
-- Deliver an interactive hero-story experience combining guided narrative generation with image support.
-- Emphasize safe content generation, authenticated user ownership, and extensible architecture.
+- API, worker, frontend, SQL persistence, queue orchestration, and blob storage are the primary components.
+- Queue decoupling isolates user-facing latency from image generation workloads.
+- Core entities cover user, story session, scene, generation job, and token lifecycle, with explicit ownership boundaries and state transitions for asynchronous processing.
+- Authenticated REST endpoints use normalized DTO contracts and robust error handling.
+- Text generation is paired with moderation in the request path, and image generation sits behind a strategy abstraction so placeholder and provider-backed implementations are interchangeable.
+- JWT auth, rate limiting, secure middleware defaults, retry, poison-queue handling, and audit-friendly failure handling are required, not optional.
+- Development is local-first with containerized dependencies, environment-variable configuration, and test-first quality gates.
+- Vertical slices come before optimization, and documentation stays in parity with implemented capabilities.
 
-## 2. MVP scope definition
+## Baseline acceptance framing
 
-- Include core flows for auth, session creation, scene creation, and asynchronous image generation.
-- Defer advanced collaboration, deep personalization, and non-critical platform integrations to later phases.
+The MVP is accepted when baseline flows operate across frontend, API, queue, worker, and storage boundaries with observable state transitions.
 
-## 3. System architecture blueprint
+## Where current direction lives
 
-- Define API, worker, frontend, SQL persistence, queue orchestration, and blob storage as primary components.
-- Use queue decoupling to isolate user-facing latency from image generation workloads.
+This page does not track progress or restate the current product contract. Each of those has exactly one home:
 
-## 4. Data model and domain contracts
-
-- Establish core entities for user, story session, scene, generation job, and token lifecycle.
-- Require clear ownership boundaries and state transitions for asynchronous processing.
-
-## 5. API and integration expectations
-
-- Provide authenticated REST endpoints for core user interactions.
-- Normalize DTO-based contracts and support robust error handling.
-
-## 6. AI and moderation strategy
-
-- Use OpenAI text generation with moderation checks in the request path.
-- Support image generation strategy abstraction to enable placeholder and provider-backed implementations.
-
-## 7. Security and reliability guardrails
-
-- Require JWT auth, rate limiting, and baseline secure middleware behavior.
-- Include retry, poison queue, and audit-friendly failure handling for async jobs.
-
-## 8. Developer workflow and environment
-
-- Define local-first setup, environment variable configuration, and test-first quality gates.
-- Expect containerized local dependencies and reproducible service startup workflow.
-
-## 9. Delivery sequencing
-
-- Prioritize scaffolding service boundaries and end-to-end vertical slices before optimization.
-- Maintain documentation parity with implemented capabilities.
-
-## 10. Acceptance framing
-
-- MVP is accepted when baseline flows operate across frontend, API, queue, worker, and storage boundaries with observable state transitions.
-
-## How to use this baseline now
-
-1. Use this handoff as the source of truth for intended architecture.
-2. Document current scaffold behavior without overstating completion.
-3. Track divergences or deferrals explicitly in [roadmap.md](roadmap.md).
+- Product, turn, revision, artwork, and likeness contract: [story-experience.md](story-experience.md). Where this baseline is broad, that document controls the current interpretation.
+- Delivery status, sequencing, and deferrals: [roadmap.md](roadmap.md).
+- Implemented behavior: [architecture.md](architecture.md), [api-summary.md](api-summary.md), and [data-model.md](data-model.md).
 
 ## Related docs
 
-- Overview: [application-overview.md](application-overview.md)
+- Doc index: [application-overview.md](application-overview.md)
 - Architecture realization: [architecture.md](architecture.md)
 - API implementation summary: [api-summary.md](api-summary.md)
 - Data model realization: [data-model.md](data-model.md)

@@ -68,6 +68,8 @@ The target generation result is conceptually:
 
 The model response must be parsed and validated as structured data. Invalid output should fail safely or be retried; application state must not be derived by brittle string parsing.
 
+Validation enforces the 250–500 word target, field lengths, 2–3 distinct suggestions, object-shaped state, and a 16 KB serialized state limit. Persisted context must use supported schema version 1. Malformed responses retry within a bounded, configurable policy before the turn fails.
+
 ## Continuity and influence
 
 Each generation request should include:
@@ -110,7 +112,7 @@ Multi-episode campaigns and multiple simultaneously active branches are post-MVP
 
 ## Deferred product decisions
 
-Before production launch, define explicit policy for age bands, content ratings, romance, irreversible character death, whether users can publish or share stories, and whether hero-likeness personalization is available to minors. These decisions affect moderation, prompting, consent, data retention, and UX and must not be left solely to model behavior.
+Explicit policy for age bands, content ratings, romance, irreversible character death, story sharing, retention, and minor access to hero-likeness personalization must be defined before production launch. The open list is tracked in [roadmap.md](roadmap.md#deferred-product-decisions).
 
 ## Artwork policy
 
@@ -146,7 +148,7 @@ The user should be able to preview, replace, disable, and remove their likeness 
 
 ## UX direction
 
-- The implemented frontend uses a persistent story workspace rather than navigating between disconnected scene cards.
+- The frontend uses a persistent story workspace rather than navigating between disconnected scene cards.
 - On desktop, it shows a latest-stories rail beside one active story timeline; on mobile, the rail moves into a drawer.
 - Present generated prose with readable book-like typography and spacing.
 - Present user contributions as compact actions between passages.
@@ -158,19 +160,9 @@ The user should be able to preview, replace, disable, and remove their likeness 
 - Keep the active story path readable as a continuous episode.
 - Treat image status as secondary to reading and decision-making.
 
-## Current implementation status
+## Delivery status
 
-Creating a story session now generates and returns its opening turn from the supplied hero/session details; users are not left with an empty session. The current implementation validates a structured JSON model response and persists narrative, summary, location, active conflict, schema-versioned story state, 2–3 suggested actions, story-beat classification, and episode-completion status per `Scene`. Each subsequent turn receives the latest accepted scene summary, location, conflict, state, and narrative passage as bounded continuity context.
-
-The parser enforces the 250–500 word target, field lengths, 2–3 distinct suggestions, object-shaped state, and a 16 KB serialized state limit. Persisted context must use supported schema version 1.
-
-Artwork is requested automatically for opening, major, climax, and conclusion beats. Automatic likeness use is an explicit, session-level opt-in and defaults off; opted-in automatic jobs require an active consented portrait and retain opaque portrait provenance. Readers can also request artwork manually for any active-path scene and request another image after the prior job settles. Scene responses expose `notRequested`, `queued`, `processing`, `completed`, `failed`, or `poisoned` artwork status so clients poll only active work.
-
-The frontend now presents ordered turns as one reader-first timeline, places user actions between passages, displays inline artwork states, offers suggestions, and keeps a persistent composer available. Latest stories can be resumed from a desktop rail or mobile drawer.
-
-The application preserves immutable latest-turn revisions and returns the active path by default. The workspace exposes an inline revision editor only for the latest active turn, warns that the prior version remains in history, and returns focus to the replacement turn. Readers can pause and resume an active episode, request a conclusion, and continue reading a completed active path; completed or paused episodes do not accept new actions. Malformed structured-turn responses retry within a bounded configurable policy with validation-attempt logging, and generation prompts include bounded summaries and state markers from older active turns while preserving the latest passage in full. Failed artwork jobs retry through bounded queue redelivery, while completed jobs are skipped on redelivery.
-
-Hero-likeness personalization is available as an opt-in feature. Users can upload a consented private portrait, enable likeness on a session for automatic beat artwork, request likeness on a single manual artwork request, and replace, disable, or delete the portrait at any time. Multi-turn summary compaction and revision of older turns remain outstanding. Delivery sequencing is tracked in [roadmap.md](roadmap.md).
+This document defines the product contract, not what currently ships. Delivery status, completed slices, and outstanding work are tracked in [roadmap.md](roadmap.md). Endpoint-level behavior is in [api-summary.md](api-summary.md).
 
 ## MVP acceptance criteria
 

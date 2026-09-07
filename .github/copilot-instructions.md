@@ -98,10 +98,10 @@ The `code-review` skill in `.github/skills/` covers reviewing a diff before merg
 ## Documentation guidance
 
 - Keep README and docs updated when architecture, workflows, or setup materially change.
-- When adding or changing behavior, update the relevant docs page in `docs/` and link from the README if needed.
+- Every fact has exactly one home. `.github/instructions/docs-consistency.instructions.md` holds the ownership map and phrasing rules and applies automatically to `docs/**` and `README.md`.
+- Delivery status lives only in `docs/roadmap.md`. Never describe a capability as implemented until it is verifiable in code.
 - Documentation updates are part of the definition of done for a slice, not a later cleanup pass.
-- Use the handoff package in `docs/handoff-plan.md` as the baseline product and engineering specification. Treat it as a frozen baseline; track slice progress in `docs/roadmap.md` instead.
-- Never describe a capability as implemented until it is verifiable in code. Never leave a doc describing shipped behavior as "planned" or "target behavior".
+- Treat `docs/handoff-plan.md` as a frozen kickoff baseline used to detect scope drift. Amend it only when the product contract itself changes, and bump its version when you do.
 
 ## Non-goals
 

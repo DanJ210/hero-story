@@ -2,7 +2,7 @@
 
 Base route prefix: `/api`
 
-The API is implemented in `src/HeroStory.Api` using controller-based endpoints and DTO contracts.
+The API is implemented in `src/HeroStory.Api` using controller-based endpoints and DTO contracts. This document describes the endpoints that exist today; outstanding work is tracked in [roadmap.md](roadmap.md).
 
 ## Authentication endpoints (`/api/auth`)
 
@@ -94,13 +94,6 @@ Scene detail and list responses include an `artworkStatus` value: `notRequested`
 
 Session responses include `likenessEnabled`. Session status values are `active`, `paused`, `completed`, `archived`, and `pendingDeletion`; paused and completed episodes reject new contributions while remaining readable.
 
-### Remaining interactive-turn contract (planned)
-
-These behaviors are not yet implemented:
-
-- `GET /api/sessions/{id}/scenes/{sceneId}/revisions`
-  - Returns revision history for an owned turn when revision-history UI is implemented.
-
 All continuation and revision operations require authentication, session ownership, input/output moderation, and optimistic conflict handling so concurrent submissions cannot create two active successors accidentally.
 
 ## Generation jobs (`/api/jobs`)
@@ -121,3 +114,4 @@ All continuation and revision operations require authentication, session ownersh
 - Runtime architecture: [architecture.md](architecture.md)
 - Entity model backing these endpoints: [data-model.md](data-model.md)
 - Product and turn contract: [story-experience.md](story-experience.md)
+- Delivery status: [roadmap.md](roadmap.md)
