@@ -162,7 +162,7 @@ The user should be able to preview, replace, disable, and remove their likeness 
 
 ## Delivery status
 
-This document defines the product contract, not what currently ships. Delivery status, completed slices, and outstanding work are tracked in [roadmap.md](roadmap.md). Endpoint-level behavior is in [api-summary.md](api-summary.md).
+This document defines the product contract, not delivery status. Delivery status is tracked in [roadmap.md](roadmap.md). Endpoint-level behavior is in [api-summary.md](api-summary.md).
 
 ## MVP acceptance criteria
 
