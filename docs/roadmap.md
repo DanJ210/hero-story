@@ -2,6 +2,8 @@
 
 This roadmap reflects expected progression from current MVP scaffold to production-ready application.
 
+It is the single home for delivery status. Other docs describe behavior in present tense and link here instead of restating what is complete, in progress, or deferred.
+
 ## Delivery status
 
 ### Implemented foundation
@@ -56,7 +58,9 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 
 ### Still deferred
 
-- multi-turn summary compaction.
+- Multi-turn summary compaction; older active-path turns currently contribute bounded summaries rather than compacted rollups.
+- A revision-history read endpoint and the UI that would consume it.
+- A dedicated consent entity covering purpose, policy version, and provider scope, plus an audit trail for portrait upload, use, replacement, disablement, export, and deletion.
 
 ## Near-term (MVP completion)
 
@@ -77,7 +81,18 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
    - secret rotation and managed identity integration,
    - stricter CSP/CORS policy management,
    - audit and compliance reporting.
-5. Resolve product policy for age bands, content ratings, romance, irreversible outcomes, story sharing, and retention.
+5. Resolve the deferred product decisions below.
+
+## Deferred product decisions
+
+These must be decided before production launch. They affect moderation, prompting, consent, data retention, and UX, and must not be left solely to model behavior:
+
+- age bands and content ratings,
+- romance and other mature-theme handling,
+- irreversible outcomes, including permanent hero death,
+- whether users can publish or share stories,
+- data retention and export policy,
+- whether hero-likeness personalization is available to minors.
 
 ## Longer-term (product capabilities)
 
@@ -95,4 +110,4 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 
 ## Baseline reference
 
-The direction above is anchored in the official handoff baseline documented in [handoff-plan.md](handoff-plan.md).
+The direction above is anchored in the frozen kickoff baseline documented in [handoff-plan.md](handoff-plan.md). The current product contract is defined in [story-experience.md](story-experience.md).

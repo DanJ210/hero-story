@@ -1,36 +1,20 @@
-# Application overview
+# Documentation index
 
 Hero Story is an authenticated, serialized superhero-story experience where the reader is the protagonist. It uses a conversational interaction loop while presenting generated content as continuous, book-like prose.
 
-## Purpose
+This page is the entry point to `docs/`. Each fact has exactly one home; use the table below to find it rather than looking for a summary here.
 
-The application demonstrates an end-to-end architecture for:
+## Where to look
 
-- user authentication and account lifecycle,
-- hero and episode creation,
-- free-text user actions plus optional suggested actions,
-- continuity-aware narrative turns shaped by user decisions,
-- non-destructive latest-turn revision,
-- moderation-aware content generation,
-- selective asynchronous artwork for major story beats,
-- cloud-aligned storage patterns (SQL, queue, blob).
-
-The product and acceptance contract is defined in [story-experience.md](story-experience.md). The current implementation persists validated structured turn output, feeds the latest accepted turn into the next bounded prompt, dispatches qualifying artwork automatically, permits manual artwork requests per active scene, and retries failed artwork jobs without repeating completed generation. Revision history and multi-turn summary compaction remain roadmap work.
-
-Session creation is the beginning of the reading experience: the API generates an opening turn from the submitted hero details and returns it with the new session.
-
-## Current scaffold status
-
-The repository currently includes:
-
-- API controllers for auth, sessions, scenes, and generation jobs,
-- domain entities and EF Core data model wiring,
-- queue and blob infrastructure adapters,
-- worker pipeline for dequeue/process/retry/poison behavior,
-- Vue 3 frontend pages and stores for core interaction paths,
-- unit and integration test scaffolding for key service and endpoint behavior.
-
-Some production-hardening and deployment assets are still roadmap items. See [roadmap.md](roadmap.md).
+| You want | Read |
+| --- | --- |
+| What the product promises, the turn contract, revision, artwork, and likeness policy | [story-experience.md](story-experience.md) |
+| What is done, in progress, or deferred | [roadmap.md](roadmap.md) |
+| How components fit together and how a request flows | [architecture.md](architecture.md) |
+| Routes, DTO fields, status codes, and error contracts | [api-summary.md](api-summary.md) |
+| Entities, relationships, and migrations | [data-model.md](data-model.md) |
+| Local setup, configuration keys, and commands | [development-guide.md](development-guide.md) |
+| The frozen kickoff baseline, for detecting scope drift | [handoff-plan.md](handoff-plan.md) |
 
 ## Functional domains
 
@@ -39,17 +23,17 @@ Some production-hardening and deployment assets are still roadmap items. See [ro
 2. **Story sessions**
    - create/list/read/update/delete user-scoped hero stories and track the active episode.
 3. **Scene lifecycle**
-   - accept a user contribution and produce the next narrative turn on the active story path.
-   - target behavior supports suggestions, continuity state, latest-turn revision, and episode completion.
+   - accept a user contribution and produce the next narrative turn on the active story path, with suggestions, continuity state, non-destructive latest-turn revision, and episode completion.
 4. **Image generation jobs**
-   - enqueue and process selected story-beat artwork with retry handling.
+   - enqueue and process selected story-beat artwork with retry and poison handling.
+5. **Hero-likeness personalization**
+   - consent-gated private portrait upload, replacement, disablement, and deletion, with opaque provenance on likeness artwork jobs.
 
-## How this document relates to other docs
+## Repository layout
 
-- Architectural boundaries and runtime flow: [architecture.md](architecture.md)
-- Endpoint-level API behavior: [api-summary.md](api-summary.md)
-- Persistence entities and relationships: [data-model.md](data-model.md)
-- Local developer setup and workflows: [development-guide.md](development-guide.md)
-- Planned evolution from MVP scaffold: [roadmap.md](roadmap.md)
-- Product, turn, and revision contract: [story-experience.md](story-experience.md)
-- Baseline specification source: [handoff-plan.md](handoff-plan.md)
+- `src/HeroStory.Api` — controllers, DTOs, services, middleware
+- `src/HeroStory.Core` — domain entities and enums
+- `src/HeroStory.Infrastructure` — EF Core, Azure clients, storage, OpenAI helpers
+- `src/HeroStory.Worker` — queue processing and image strategies
+- `src/HeroStory.Frontend` — Vue 3 SPA; canonical source under its nested `src/`
+- `tests/` — xUnit unit and integration projects

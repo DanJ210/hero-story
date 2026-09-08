@@ -1,6 +1,6 @@
 # Hero Story
 
-Hero Story is a serialized superhero story where the reader is the main character. The experience uses a conversational loop: the application presents a book-like passage, the user decides what their hero says or does, and the next passage reflects that decision. The repository currently contains a scaffolded MVP across API, worker, frontend, core domain, infrastructure, and tests.
+Hero Story is a serialized superhero story where the reader is the main character. The experience uses a conversational loop: the application presents a book-like passage, the user decides what their hero says or does, and the next passage reflects that decision. The repository spans an API, worker, frontend, core domain, infrastructure, and tests.
 
 ## Project overview
 
@@ -12,15 +12,13 @@ The MVP is split into three runtime services:
 
 Supporting projects include domain entities in `HeroStory.Core`, infrastructure adapters in `HeroStory.Infrastructure`, and unit/integration tests under `tests/`.
 
-For deeper detail, start with [docs/application-overview.md](docs/application-overview.md).
+For deeper detail, start with [docs/application-overview.md](docs/application-overview.md), which indexes the rest of `docs/`.
 
-The target experience, turn contract, revision behavior, and MVP acceptance criteria are defined in [docs/story-experience.md](docs/story-experience.md).
-
-The reader-first workspace now includes latest stories, a continuous narrative timeline, inline artwork states, suggested actions, a persistent hero-action composer, and latest-turn revision across desktop and mobile. Current delivery focus is revision hardening and active-path history. See [docs/roadmap.md](docs/roadmap.md#current-milestone).
+The experience, turn contract, revision behavior, and MVP acceptance criteria are defined in [docs/story-experience.md](docs/story-experience.md). Delivery status lives in [docs/roadmap.md](docs/roadmap.md).
 
 ## Architecture summary
 
-The target architecture and current scaffold are aligned around these components:
+The system is organized around these components:
 
 - **API**: ASP.NET Core app with JWT auth, rate limiting, CORS, and controller-based endpoints.
 - **Worker**: .NET background service processing queued image jobs.
@@ -82,7 +80,7 @@ Additional setup and troubleshooting notes are in [docs/development-guide.md](do
 2. User submits what their hero says, attempts, or chooses through `POST /api/sessions/{id}/scenes` to continue.
 3. API moderates the contribution, advances the narrative, and returns the next story turn.
 4. API validates and stores structured narrative output, including summary, location, active conflict, schema-versioned state, 2–3 optional suggested actions, story beat, and episode-completion status.
-5. The next request receives the latest accepted summary, location, conflict, schema-versioned state, and narrative passage as bounded continuity context. Artwork is queued automatically for opening, major, climax, and conclusion beats, and readers can request artwork manually for any active scene. The API and workspace support immutable revision of the latest active turn; multi-turn summary compaction, revision history, and automatic artwork retry remain planned.
+5. The next request receives bounded active-path continuity: the latest accepted summary, location, conflict, schema-versioned state, and narrative passage, plus summaries and state markers from older turns. Artwork is queued automatically for opening, major, climax, and conclusion beats, and readers can request artwork manually for any active scene. Revision of the latest active turn is immutable, and failed artwork jobs retry through bounded queue redelivery without repeating completed generation.
 
 ### Worker image pipeline
 
@@ -113,12 +111,12 @@ See [docs/api-summary.md](docs/api-summary.md) and [docs/architecture.md](docs/a
 
 ## Documentation index
 
-- [Application overview](docs/application-overview.md)
+- [Documentation index](docs/application-overview.md)
 - [Architecture](docs/architecture.md)
 - [API summary](docs/api-summary.md)
 - [Data model](docs/data-model.md)
 - [Development guide](docs/development-guide.md)
-- [Roadmap](docs/roadmap.md)
+- [Roadmap and delivery status](docs/roadmap.md)
 - [Interactive story experience](docs/story-experience.md)
-- [Handoff plan baseline](docs/handoff-plan.md)
+- [Frozen kickoff baseline](docs/handoff-plan.md)
 - [Copilot instructions](.github/copilot-instructions.md)

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the intended target architecture and how the current scaffold maps to it.
+This document describes how the system is structured and how a request flows through it. It states behavior in present tense and does not track delivery status; see [roadmap.md](roadmap.md) for what is complete or outstanding.
 
 ## High-level component model
 
@@ -23,7 +23,7 @@ This document describes the intended target architecture and how the current sca
 - API moderates generated prose, persists the new immutable turn on the active path, and returns it without waiting for artwork.
 - Revision creates a replacement turn from the preceding accepted turn and marks the prior latest version as superseded; it does not overwrite historical content in place.
 
-The current implementation validates and persists the structured generation result alongside `ChoiceText` and `NarrativeText`. It supplies the latest accepted summary, location, conflict, schema-versioned state, and narrative passage to the next request. It creates image jobs automatically for opening, major, climax, and conclusion beats, and on reader request for any active scene, while exposing derived artwork status to clients. Revision history, multi-turn summary compaction, and automatic image retry remain planned work.
+Structured generation results are validated and persisted alongside `ChoiceText` and `NarrativeText`. Each request carries the latest accepted summary, location, conflict, schema-versioned state, and narrative passage, plus bounded summaries and state markers from older active-path turns. Image jobs are created automatically for opening, major, climax, and conclusion beats, and on reader request for any active scene, and derived artwork status is exposed to clients.
 
 ### Asynchronous path (worker-facing)
 
@@ -44,7 +44,7 @@ Generation requests should use the minimum relevant context. Structured model re
 
 Optional hero-likeness personalization is a separate privacy boundary from narrative state and generated artwork. Source portraits belong in private, ownership-scoped storage and must not be embedded in `StorySession`, `Scene`, queue payloads, logs, or public asset containers.
 
-The first likeness phase now owns consent, private portrait metadata, replacement/disablement, and deletion. Phase 2 records an opaque portrait ID and consent timestamp on opted-in manual artwork jobs; the worker resolves the private blob, validates provenance, enforces bounded provider-reference age, normalizes source encoding, and sends the image directly to the provider's manual image-edit endpoint. Phase 3 slice 1 adds a default-off, session-level opt-in for automatic likeness artwork on opening, major, climax, and conclusion beats; those jobs use the same opaque provenance boundary.
+Consent, private portrait metadata, replacement, disablement, and deletion are owned by the portrait service. Artwork jobs that opt into likeness carry an opaque portrait ID and consent timestamp; the worker resolves the private blob, validates provenance, enforces bounded provider-reference age, normalizes source encoding, and sends the image directly to the provider's manual image-edit endpoint. A default-off, session-level opt-in extends the same opaque provenance boundary to automatic artwork on opening, major, climax, and conclusion beats. Disabling or deleting a portrait fails stale queued likeness jobs closed and removes superseded portrait blobs, under a retain-output policy for artwork already generated.
 
 ## Security and control surfaces
 
@@ -58,13 +58,14 @@ The first likeness phase now owns consent, private portrait metadata, replacemen
 
 ## Deployment shape (target)
 
-The architecture is designed for cloud deployment where API and worker are independently scalable compute units over shared SQL/queue/blob backends. The current repository scaffold focuses on local-first development and service boundaries needed for that deployment model.
+The architecture is designed for cloud deployment where API and worker are independently scalable compute units over shared SQL/queue/blob backends. The repository itself is configured for local-first development.
 
 ## Related docs
 
-- Overview: [application-overview.md](application-overview.md)
+- Doc index: [application-overview.md](application-overview.md)
 - API details: [api-summary.md](api-summary.md)
 - Data design: [data-model.md](data-model.md)
 - Setup and dev workflow: [development-guide.md](development-guide.md)
-- Baseline handoff spec: [handoff-plan.md](handoff-plan.md)
+- Delivery status: [roadmap.md](roadmap.md)
+- Frozen kickoff baseline: [handoff-plan.md](handoff-plan.md)
 - Product and turn contract: [story-experience.md](story-experience.md)

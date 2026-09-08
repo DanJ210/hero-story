@@ -66,23 +66,29 @@ The endpoint creates or reuses the user configured by `DEV_AUTH_EMAIL` and issue
 
 - Unit tests: `dotnet test tests/HeroStory.UnitTests/HeroStory.UnitTests.csproj`
 - Integration tests: `dotnet test tests/HeroStory.IntegrationTests/HeroStory.IntegrationTests.csproj`
+- Frontend tests: `npm --prefix src/HeroStory.Frontend run test`
+- Frontend type check: `npm --prefix src/HeroStory.Frontend run lint`
 
-## Scaffold conventions
+## Project conventions
 
 - API business logic lives in services, not controllers.
 - Infrastructure adapters are in `HeroStory.Infrastructure`.
 - Worker strategy selection is controlled by `IMAGE_STRATEGY` (for example `placeholder` or `dalle3`).
-- Queue retries and poison handling are controlled through `AZURE_QUEUE_*` settings.
+- Queue retries and poison handling are controlled through `AZURE_QUEUE_*` settings. Keep the worker's `AZURE_QUEUE_VISIBILITY_TIMEOUT_SECONDS` above observed image-provider latency so redelivery does not duplicate in-flight generation.
+- Private portraits are stored in the container named by `AZURE_BLOB_PORTRAITS_CONTAINER`, which must be a private container separate from `AZURE_BLOB_IMAGES_CONTAINER`. The API and worker must resolve the same container name.
+- The worker bounds how long a portrait may be used as a provider reference through `LIKENESS_PROVIDER_REFERENCE_MAX_AGE_MINUTES`; expired or provenance-mismatched jobs fail closed.
 
 ## Documentation workflow
 
-When adding or changing functionality:
+Every fact has exactly one home. When adding or changing functionality:
 
-1. Update endpoint or flow details in [api-summary.md](api-summary.md).
-2. Update architecture or data changes in [architecture.md](architecture.md) and [data-model.md](data-model.md).
-3. Keep README index links in sync.
+1. Record completion or new deferrals in [roadmap.md](roadmap.md); it is the only page that tracks status.
+2. Describe the behavior in present tense on the owning page: [api-summary.md](api-summary.md) for routes and contracts, [architecture.md](architecture.md) for flow and boundaries, [data-model.md](data-model.md) for entities and migrations.
+3. Update [story-experience.md](story-experience.md) only when the product contract itself changes.
+4. Add new configuration keys, secrets, containers, or commands to this guide.
+5. Keep the index in [application-overview.md](application-overview.md) and the README links in sync.
 
 ## Related docs
 
-- Project orientation: [application-overview.md](application-overview.md)
-- Long-term direction: [roadmap.md](roadmap.md)
+- Doc index: [application-overview.md](application-overview.md)
+- Delivery status: [roadmap.md](roadmap.md)
