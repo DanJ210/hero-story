@@ -1,6 +1,6 @@
 # Interactive Hero Story MVP — GitHub Copilot Agent Handoff Package
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** Aug 12, 2026  
 **Status:** Frozen baseline. Amend only when the product contract itself changes, and bump the version when you do.
 
