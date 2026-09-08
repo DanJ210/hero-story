@@ -28,7 +28,17 @@ public class ScenesController : ControllerBase
         return CreatedAtAction(nameof(GetScene), new { id, sceneId = response.Id }, response);
     }
 
-    [HttpPost("{sceneId:guid}/artwork")][EnableRateLimiting("scenes")] public async Task<ActionResult<SceneDto>> RequestArtwork(Guid id, Guid sceneId, [FromQuery] bool usePortrait, CancellationToken cancellationToken) { var response = await _sceneService.RequestArtworkAsync(GetUserId(), id, sceneId, usePortrait, cancellationToken); return AcceptedAtAction(nameof(GetScene), new { id, sceneId = response.Id }, response); }
+    [HttpPost("{sceneId:guid}/artwork")]
+    [EnableRateLimiting("scenes")]
+    public async Task<ActionResult<SceneDto>> RequestArtwork(
+        Guid id,
+        Guid sceneId,
+        [FromQuery] bool usePortrait,
+        CancellationToken cancellationToken)
+    {
+        var response = await _sceneService.RequestArtworkAsync(GetUserId(), id, sceneId, usePortrait, cancellationToken);
+        return AcceptedAtAction(nameof(GetScene), new { id, sceneId = response.Id }, response);
+    }
     [HttpPost("{sceneId:guid}/revisions")][EnableRateLimiting("scenes")] public async Task<ActionResult<SceneDto>> ReviseScene(Guid id, Guid sceneId, ReviseSceneRequest request, CancellationToken cancellationToken) { var response = await _sceneService.ReviseLatestSceneAsync(GetUserId(), id, sceneId, request, cancellationToken); return CreatedAtAction(nameof(GetScene), new { id, sceneId = response.Id }, response); }
     [HttpGet("{sceneId:guid}")] public async Task<ActionResult<SceneDto>> GetScene(Guid id, Guid sceneId, CancellationToken cancellationToken) { var response = await _sceneService.GetSceneAsync(GetUserId(), id, sceneId, cancellationToken); return response is null ? NotFound() : Ok(response); }
     private Guid GetUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new UnauthorizedAccessException());
