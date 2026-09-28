@@ -14,6 +14,7 @@ This page is the entry point to `docs/`. Each fact has exactly one home; use the
 | Routes, DTO fields, status codes, and error contracts | [api-summary.md](api-summary.md) |
 | Entities, relationships, and migrations | [data-model.md](data-model.md) |
 | Local setup, configuration keys, and commands | [development-guide.md](development-guide.md) |
+| Azure App Service deployment work plan | [plan.copilotmd](../.azure/plan.copilotmd) |
 | The frozen kickoff baseline, for detecting scope drift | [handoff-plan.md](handoff-plan.md) |
 
 ## Functional domains
