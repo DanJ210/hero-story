@@ -10,6 +10,9 @@ public class StorySession
     public string Genre { get; set; } = string.Empty;
     public string HeroArchetype { get; set; } = string.Empty;
     public string HeroName { get; set; } = string.Empty;
+    public string ContinuitySummary { get; set; } = string.Empty;
+    public int ContinuitySummaryThroughSequence { get; set; }
+    public DateTime? ContinuitySummaryUpdatedAt { get; set; }
     public bool LikenessEnabled { get; set; }
     public SessionStatus Status { get; set; } = SessionStatus.Active;
     public int ModerationFailureCount { get; set; } = 0;

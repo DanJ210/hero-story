@@ -28,6 +28,9 @@ public class SessionEndpointTests
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var user = dbContext.Users.Single(account => account.Email == "developer@hero-story.local");
             var ownedSession = CreateSession(user.Id, "Owned story");
+            ownedSession.ContinuitySummary = "Internal continuity marker.";
+            ownedSession.ContinuitySummaryThroughSequence = 12;
+            ownedSession.ContinuitySummaryUpdatedAt = DateTime.UtcNow;
             var foreignSession = CreateSession(Guid.NewGuid(), "Foreign story");
             dbContext.AddRange(
                 ownedSession,
@@ -41,6 +44,7 @@ public class SessionEndpointTests
         }
 
         var ownedResponse = await client.GetAsync($"/api/sessions/{ownedSessionId}/workspace");
+        var workspaceJson = await ownedResponse.Content.ReadAsStringAsync();
         var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         jsonOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
         var workspace = await ownedResponse.Content.ReadFromJsonAsync<StoryWorkspaceDto>(jsonOptions);
@@ -50,6 +54,9 @@ public class SessionEndpointTests
         Assert.NotNull(workspace);
         Assert.Equal("Owned story", workspace.Session.Title);
         Assert.Equal([1, 2], workspace.Turns.Select(turn => turn.SequenceNumber));
+        Assert.DoesNotContain("continuitySummary", workspaceJson);
+        Assert.DoesNotContain("continuitySummaryThroughSequence", workspaceJson);
+        Assert.DoesNotContain("continuitySummaryUpdatedAt", workspaceJson);
         Assert.Equal(System.Net.HttpStatusCode.NotFound, foreignResponse.StatusCode);
     }
 

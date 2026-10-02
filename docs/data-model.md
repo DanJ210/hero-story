@@ -22,6 +22,7 @@ This document describes the persisted model in present tense. It does not track 
 - Query-filtered for logical deletion (`DeletedAt == null`).
 - Parent for scenes and generation context.
 - Tracks the active episode through `Status` (`active`, `paused`, `completed`, `archived`, `pendingDeletion`) and carries the default-off `LikenessEnabled` opt-in.
+- Persists compacted continuity in `ContinuitySummary`, the last covered scene sequence in `ContinuitySummaryThroughSequence`, and its timestamp in `ContinuitySummaryUpdatedAt`.
 
 ## `Scene`
 
@@ -88,7 +89,7 @@ Use a schema-versioned structured representation. Storage may begin as provider-
 
 - Entity configuration classes live in the infrastructure assembly and are applied from there.
 - The API applies migrations at startup when `DB_APPLY_MIGRATIONS=true`.
-- Committed migrations under `src/HeroStory.Infrastructure/Data/Migrations`, in order: `InitialCreate`, `AddStructuredStoryTurn`, `AddSceneRevisionLineage`, `AddSceneConcurrencyToken`, `AllowMultipleGenerationJobsPerScene`, `AddUserPortraitConsent`, `AddPortraitProvenanceToGenerationJobs`, `AddAutomaticLikenessOptIn`.
+- Committed migrations under `src/HeroStory.Infrastructure/Data/Migrations`, in order: `InitialCreate`, `AddStructuredStoryTurn`, `AddSceneRevisionLineage`, `AddSceneConcurrencyToken`, `AllowMultipleGenerationJobsPerScene`, `AddUserPortraitConsent`, `AddPortraitProvenanceToGenerationJobs`, `AddAutomaticLikenessOptIn`, `AddContinuitySummary`.
 
 ## Related docs
 

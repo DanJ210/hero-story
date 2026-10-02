@@ -5,6 +5,7 @@ using HeroStory.Core.Enums;
 using HeroStory.Infrastructure.Clients;
 using HeroStory.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HeroStory.Api.Services;
 
@@ -15,19 +16,25 @@ public class SceneService : ISceneService
     private readonly IOpenAiTextService _openAiTextService;
     private readonly AzureQueueClient _queueClient;
     private readonly IUserPortraitService _userPortraitService;
+    private readonly IContinuitySummaryService? _continuitySummaryService;
+    private readonly ILogger<SceneService> _logger;
 
     public SceneService(
         AppDbContext dbContext,
         IModerationService moderationService,
         IOpenAiTextService openAiTextService,
         AzureQueueClient queueClient,
-        IUserPortraitService? userPortraitService = null)
+        IUserPortraitService? userPortraitService = null,
+        IContinuitySummaryService? continuitySummaryService = null,
+        ILogger<SceneService>? logger = null)
     {
         _dbContext = dbContext;
         _moderationService = moderationService;
         _openAiTextService = openAiTextService;
         _queueClient = queueClient;
         _userPortraitService = userPortraitService!;
+        _continuitySummaryService = continuitySummaryService;
+        _logger = logger ?? NullLogger<SceneService>.Instance;
     }
 
     public async Task<IReadOnlyList<SceneListDto>> GetScenesAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
@@ -183,7 +190,11 @@ public class SceneService : ISceneService
             throw new InvalidOperationException(moderation.Detail ?? "Scene input was rejected.");
         }
 
-        var prompt = BuildPrompt(session, continuityScene, activeScenes, choiceText);
+        var continuitySummary = supersededScene is not null
+            && session.ContinuitySummaryThroughSequence >= supersededScene.SequenceNumber
+                ? string.Empty
+                : session.ContinuitySummary;
+        var prompt = BuildPrompt(session, continuityScene, activeScenes, choiceText, continuitySummary);
         var generatedTurn = await _openAiTextService.GenerateTurnAsync(prompt, cancellationToken);
         var outputModeration = await _moderationService.ModerateOutputAsync(generatedTurn.NarrativeText, cancellationToken);
         if (requireEpisodeComplete && !generatedTurn.IsEpisodeComplete)
@@ -192,6 +203,7 @@ public class SceneService : ISceneService
         }
 
         var storyBeat = continuityScene is null ? StoryBeat.Opening : generatedTurn.StoryBeat;
+        var continuitySummaryInvalidated = false;
         var scene = new Scene
         {
             Id = Guid.NewGuid(),
@@ -250,12 +262,12 @@ public class SceneService : ISceneService
             if (_dbContext.Database.IsRelational())
             {
                 await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
-                await SupersedeAndPersistReplacementAsync(supersededScene, session, scene, job, cancellationToken);
+                continuitySummaryInvalidated = await SupersedeAndPersistReplacementAsync(supersededScene, session, scene, job, cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
             }
             else
             {
-                await SupersedeAndPersistReplacementAsync(supersededScene, session, scene, job, cancellationToken);
+                continuitySummaryInvalidated = await SupersedeAndPersistReplacementAsync(supersededScene, session, scene, job, cancellationToken);
             }
         }
         else
@@ -276,11 +288,14 @@ public class SceneService : ISceneService
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
+        // Enqueue before compaction so a slow or failed summary call cannot strand the persisted job.
         if (job is not null)
         {
             var message = JsonSerializer.Serialize(new { jobId = job.Id, sceneId = scene.Id, sessionId });
             await _queueClient.EnqueueAsync(message, cancellationToken);
         }
+
+        await TryCompactContinuitySummaryAsync(session, continuitySummaryInvalidated, cancellationToken);
 
         return SceneDtoMapper.ToDto(scene);
     }
@@ -328,13 +343,21 @@ public class SceneService : ISceneService
         return SceneDtoMapper.ToDto(scene);
     }
 
-    private async Task SupersedeAndPersistReplacementAsync(
+    private async Task<bool> SupersedeAndPersistReplacementAsync(
         Scene supersededScene,
         StorySession session,
         Scene replacementScene,
         GenerationJob? job,
         CancellationToken cancellationToken)
     {
+        var continuitySummaryInvalidated = session.ContinuitySummaryThroughSequence >= supersededScene.SequenceNumber;
+        if (continuitySummaryInvalidated)
+        {
+            session.ContinuitySummary = string.Empty;
+            session.ContinuitySummaryThroughSequence = 0;
+            session.ContinuitySummaryUpdatedAt = null;
+        }
+
         supersededScene.IsActive = false;
         supersededScene.UpdatedAt = DateTime.UtcNow;
         session.UpdatedAt = DateTime.UtcNow;
@@ -346,13 +369,19 @@ public class SceneService : ISceneService
             _dbContext.GenerationJobs.Add(job);
         }
         await _dbContext.SaveChangesAsync(cancellationToken);
+        return continuitySummaryInvalidated;
     }
 
-    private static string BuildPrompt(StorySession session, Scene? latestScene, IReadOnlyList<Scene> activeScenes, string choiceText)
+    private string BuildPrompt(
+        StorySession session,
+        Scene? latestScene,
+        IReadOnlyList<Scene> activeScenes,
+        string choiceText,
+        string continuitySummary)
     {
         var continuityContext = latestScene is null
             ? "This is the opening turn; no prior story state exists. Establish the initial situation without inventing prior events."
-            : BuildContinuityContext(activeScenes, latestScene);
+            : BuildContinuityContext(activeScenes, latestScene, continuitySummary, session.ContinuitySummaryThroughSequence);
 
         return $$"""
             Continue an interactive superhero story in which the user is the protagonist.
@@ -387,25 +416,109 @@ public class SceneService : ISceneService
             """;
     }
 
-    private static string BuildContinuityContext(IReadOnlyList<Scene> activeScenes, Scene latestScene)
+    private string BuildContinuityContext(
+        IReadOnlyList<Scene> activeScenes,
+        Scene latestScene,
+        string continuitySummary,
+        int continuitySummaryThroughSequence)
     {
-        const int maximumContextCharacters = 12000;
+        var maximumContextCharacters = _continuitySummaryService?.MaximumContextCharacters ?? 12000;
+        // Every active scene after the compacted summary stays in the prompt until compaction covers it;
+        // newest-first ordering lets the character budget trim the oldest uncovered scenes first.
+        var summarizedThroughSequence = string.IsNullOrWhiteSpace(continuitySummary) ? 0 : continuitySummaryThroughSequence;
         var olderScenes = activeScenes
-            .Where(scene => scene.SequenceNumber < latestScene.SequenceNumber)
+            .Where(scene => scene.SequenceNumber > summarizedThroughSequence
+                && scene.SequenceNumber < latestScene.SequenceNumber)
             .OrderByDescending(scene => scene.SequenceNumber)
             .Select(scene => $"Scene {scene.SequenceNumber} summary: {scene.SceneSummary}\nLocation: {scene.Location}\nConflict: {scene.ActiveConflict}\nState: {ValidateAndNormalizeStoryState(scene.StoryStateJson, scene.StoryStateSchemaVersion)}")
             .ToList();
-        var olderContext = string.Join("\n\n", olderScenes);
+        var recentContext = olderScenes.Count == 0 ? string.Empty : $"Recent active-path continuity:\n{string.Join("\n\n", olderScenes)}";
+        var summaryContext = string.IsNullOrWhiteSpace(continuitySummary)
+            ? string.Empty
+            : $"Compacted continuity summary:\n{continuitySummary.Trim()}";
         var latestContext = $"Latest accepted scene summary: {latestScene.SceneSummary}\nCurrent location: {latestScene.Location}\nCurrent active conflict: {latestScene.ActiveConflict}\nCurrent story state (schema version {latestScene.StoryStateSchemaVersion}): {ValidateAndNormalizeStoryState(latestScene.StoryStateJson, latestScene.StoryStateSchemaVersion)}\nPrevious narrative passage: {latestScene.NarrativeText}";
-        var availableOlderCharacters = Math.Max(0, maximumContextCharacters - latestContext.Length);
-        if (olderContext.Length > availableOlderCharacters)
+
+        var fixedContextLength = summaryContext.Length + latestContext.Length;
+        var fixedContextBlocks = (summaryContext.Length == 0 ? 0 : 1) + 1;
+        var availableRecentCharacters = Math.Max(0, maximumContextCharacters - fixedContextLength - (fixedContextBlocks * 2));
+        if (recentContext.Length > availableRecentCharacters)
         {
-            olderContext = olderContext[..availableOlderCharacters];
+            recentContext = availableRecentCharacters <= "Recent active-path continuity:\n".Length
+                ? string.Empty
+                : recentContext[..availableRecentCharacters];
         }
 
-        return string.IsNullOrWhiteSpace(olderContext)
-            ? latestContext
-            : $"Earlier active-path continuity:\n{olderContext}\n\n{latestContext}";
+        var contextBlocks = new[] { summaryContext, recentContext, latestContext }
+            .Where(context => !string.IsNullOrWhiteSpace(context));
+        return string.Join("\n\n", contextBlocks);
+    }
+
+    private async Task TryCompactContinuitySummaryAsync(
+        StorySession session,
+        bool forceRebuild,
+        CancellationToken cancellationToken)
+    {
+        if (_continuitySummaryService is null)
+        {
+            return;
+        }
+
+        var existingSummary = session.ContinuitySummary;
+        var existingThroughSequence = session.ContinuitySummaryThroughSequence;
+        var existingUpdatedAt = session.ContinuitySummaryUpdatedAt;
+        var existingSessionUpdatedAt = session.UpdatedAt;
+
+        try
+        {
+            var activeScenes = await _dbContext.Scenes
+                .AsNoTracking()
+                .Where(scene => scene.SessionId == session.Id && scene.IsActive)
+                .OrderBy(scene => scene.SequenceNumber)
+                .ToListAsync(cancellationToken);
+            var uncompactedOlderCount = Math.Max(0, activeScenes.Count - _continuitySummaryService.RecentTurns);
+            var scenesToCompact = activeScenes
+                .Take(uncompactedOlderCount)
+                .Where(scene => scene.SequenceNumber > session.ContinuitySummaryThroughSequence)
+                .Take(_continuitySummaryService.CompactionInterval)
+                .ToArray();
+
+            if (scenesToCompact.Length == 0
+                || (!forceRebuild && scenesToCompact.Length < _continuitySummaryService.CompactionInterval))
+            {
+                return;
+            }
+
+            var summary = await _continuitySummaryService.CompactAsync(
+                session.ContinuitySummary,
+                scenesToCompact,
+                cancellationToken);
+            if (string.IsNullOrWhiteSpace(summary) || summary.Length > StoryTurnLimits.MaximumContinuitySummaryCharacters)
+            {
+                throw new InvalidOperationException($"Continuity summary must contain 1-{StoryTurnLimits.MaximumContinuitySummaryCharacters} characters.");
+            }
+
+            session.ContinuitySummary = summary.Trim();
+            session.ContinuitySummaryThroughSequence = scenesToCompact[^1].SequenceNumber;
+            session.ContinuitySummaryUpdatedAt = DateTime.UtcNow;
+            session.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            session.ContinuitySummary = existingSummary;
+            session.ContinuitySummaryThroughSequence = existingThroughSequence;
+            session.ContinuitySummaryUpdatedAt = existingUpdatedAt;
+            session.UpdatedAt = existingSessionUpdatedAt;
+            throw;
+        }
+        catch (Exception exception)
+        {
+            session.ContinuitySummary = existingSummary;
+            session.ContinuitySummaryThroughSequence = existingThroughSequence;
+            session.ContinuitySummaryUpdatedAt = existingUpdatedAt;
+            session.UpdatedAt = existingSessionUpdatedAt;
+            _logger.LogWarning(exception, "Continuity summary compaction failed for session {SessionId}; the stored summary remains stale.", session.Id);
+        }
     }
 
     private static bool RequestsArtwork(StoryBeat storyBeat)

@@ -39,6 +39,7 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 - [x] Allow users to request artwork manually for any active-path scene and request a new image after the prior job settles.
 - [x] Retry malformed structured-turn responses with bounded configuration and validation-attempt observability.
 - [x] Include bounded older active-path continuity summaries and state markers in generation prompts.
+- [x] Compact older active-path scenes into a persisted multi-turn continuity summary while retaining a recent generation-context window.
 - [x] Retry failed artwork jobs through bounded queue redelivery without regenerating completed jobs.
 
 ### Hero-likeness phases
@@ -58,7 +59,6 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 
 ### Still deferred
 
-- Multi-turn summary compaction; older active-path turns currently contribute bounded summaries rather than compacted rollups.
 - A revision-history read endpoint and the UI that would consume it.
 - A dedicated consent entity covering purpose, policy version, and provider scope, plus an audit trail for portrait upload, use, replacement, disablement, export, and deletion.
 
