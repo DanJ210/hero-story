@@ -309,6 +309,46 @@ public class SceneServiceTests
         Assert.Contains("EARLY_EPISODE_STATE_MARKER", capturedPrompt);
     }
 
+    [Fact]
+    public async Task CreateSceneAsync_IncludesEveryUncompactedSceneAfterSummaryCoverage()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Uncovered continuity");
+        session.ContinuitySummary = "ROLLUP_THROUGH_FOUR";
+        session.ContinuitySummaryThroughSequence = 4;
+        for (var sequenceNumber = 1; sequenceNumber <= 13; sequenceNumber++)
+        {
+            session.Scenes.Add(CreatePreviousScene(session.Id, sequenceNumber, $"MARKER_{sequenceNumber:D2}"));
+        }
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var capturedPrompt = string.Empty;
+        var text = new Mock<IOpenAiTextService>();
+        text.Setup(service => service.GenerateTurnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((prompt, _) => capturedPrompt = prompt)
+            .ReturnsAsync(CreateGeneratedTurn());
+        var service = new SceneService(
+            dbContext,
+            CreateApprovedModeration().Object,
+            text.Object,
+            CreateQueue().Object,
+            continuitySummaryService: CreateContinuitySummaryService(recentTurns: 6, interval: 20).Object);
+
+        await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue"), CancellationToken.None);
+
+        Assert.Contains("ROLLUP_THROUGH_FOUR", capturedPrompt);
+        for (var sequenceNumber = 5; sequenceNumber <= 13; sequenceNumber++)
+        {
+            Assert.Contains($"MARKER_{sequenceNumber:D2}", capturedPrompt);
+        }
+        for (var sequenceNumber = 1; sequenceNumber <= 4; sequenceNumber++)
+        {
+            Assert.DoesNotContain($"MARKER_{sequenceNumber:D2}", capturedPrompt);
+        }
+    }
+
     [Theory]
     [InlineData(8, 0)]
     [InlineData(9, 1)]

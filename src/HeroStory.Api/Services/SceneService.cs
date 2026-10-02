@@ -381,7 +381,7 @@ public class SceneService : ISceneService
     {
         var continuityContext = latestScene is null
             ? "This is the opening turn; no prior story state exists. Establish the initial situation without inventing prior events."
-            : BuildContinuityContext(activeScenes, latestScene, continuitySummary);
+            : BuildContinuityContext(activeScenes, latestScene, continuitySummary, session.ContinuitySummaryThroughSequence);
 
         return $$"""
             Continue an interactive superhero story in which the user is the protagonist.
@@ -416,14 +416,20 @@ public class SceneService : ISceneService
             """;
     }
 
-    private string BuildContinuityContext(IReadOnlyList<Scene> activeScenes, Scene latestScene, string continuitySummary)
+    private string BuildContinuityContext(
+        IReadOnlyList<Scene> activeScenes,
+        Scene latestScene,
+        string continuitySummary,
+        int continuitySummaryThroughSequence)
     {
         var maximumContextCharacters = _continuitySummaryService?.MaximumContextCharacters ?? 12000;
-        var recentTurnCount = _continuitySummaryService?.RecentTurns ?? 6;
+        // Every active scene after the compacted summary stays in the prompt until compaction covers it;
+        // newest-first ordering lets the character budget trim the oldest uncovered scenes first.
+        var summarizedThroughSequence = string.IsNullOrWhiteSpace(continuitySummary) ? 0 : continuitySummaryThroughSequence;
         var olderScenes = activeScenes
-            .Where(scene => scene.SequenceNumber < latestScene.SequenceNumber)
+            .Where(scene => scene.SequenceNumber > summarizedThroughSequence
+                && scene.SequenceNumber < latestScene.SequenceNumber)
             .OrderByDescending(scene => scene.SequenceNumber)
-            .Take(recentTurnCount)
             .Select(scene => $"Scene {scene.SequenceNumber} summary: {scene.SceneSummary}\nLocation: {scene.Location}\nConflict: {scene.ActiveConflict}\nState: {ValidateAndNormalizeStoryState(scene.StoryStateJson, scene.StoryStateSchemaVersion)}")
             .ToList();
         var recentContext = olderScenes.Count == 0 ? string.Empty : $"Recent active-path continuity:\n{string.Join("\n\n", olderScenes)}";
