@@ -107,46 +107,52 @@ public class OpenAiClient
         using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCancellation.CancelAfter(_requestTimeout);
 
-        HttpResponseMessage response;
         try
         {
-            response = await _httpClient.PostAsJsonAsync("/v1/images/generations", new
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/images/generations")
             {
-                model,
-                prompt = boundedPrompt,
-                n = 1,
-                size,
-                quality,
-                output_format = "png"
-            }, timeoutCancellation.Token);
+                Content = JsonContent.Create(new
+                {
+                    model,
+                    prompt = boundedPrompt,
+                    n = 1,
+                    size,
+                    quality,
+                    output_format = "png"
+                })
+            };
+            using var response = await _httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                timeoutCancellation.Token);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(timeoutCancellation.Token);
+                throw new HttpRequestException($"OpenAI image generation failed with {(int)response.StatusCode} ({response.StatusCode}): {errorBody}");
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<ImageGenerationResponse>(cancellationToken: timeoutCancellation.Token)
+                ?? throw new InvalidOperationException("OpenAI image generation response was empty.");
+            var image = payload.Data.FirstOrDefault()
+                ?? throw new InvalidOperationException("OpenAI image generation response did not include an image.");
+
+            if (!string.IsNullOrWhiteSpace(image.B64Json))
+            {
+                return Convert.FromBase64String(image.B64Json);
+            }
+
+            if (!string.IsNullOrWhiteSpace(image.Url))
+            {
+                return await _httpClient.GetByteArrayAsync(image.Url, timeoutCancellation.Token);
+            }
+
+            throw new InvalidOperationException("OpenAI image generation response did not include image data.");
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             throw new TimeoutException($"OpenAI image generation did not respond within {_requestTimeout.TotalSeconds:0} seconds.");
         }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorBody = await response.Content.ReadAsStringAsync(timeoutCancellation.Token);
-            throw new HttpRequestException($"OpenAI image generation failed with {(int)response.StatusCode} ({response.StatusCode}): {errorBody}");
-        }
-
-        var payload = await response.Content.ReadFromJsonAsync<ImageGenerationResponse>(cancellationToken: timeoutCancellation.Token)
-            ?? throw new InvalidOperationException("OpenAI image generation response was empty.");
-        var image = payload.Data.FirstOrDefault()
-            ?? throw new InvalidOperationException("OpenAI image generation response did not include an image.");
-
-        if (!string.IsNullOrWhiteSpace(image.B64Json))
-        {
-            return Convert.FromBase64String(image.B64Json);
-        }
-
-        if (!string.IsNullOrWhiteSpace(image.Url))
-        {
-            return await _httpClient.GetByteArrayAsync(image.Url, timeoutCancellation.Token);
-        }
-
-        throw new InvalidOperationException("OpenAI image generation response did not include image data.");
     }
 
     public async Task<byte[]> GenerateImageWithReferenceAsync(string imagePrompt, Stream referenceImage, string contentType, CancellationToken cancellationToken)
