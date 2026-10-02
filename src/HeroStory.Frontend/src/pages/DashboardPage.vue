@@ -73,7 +73,7 @@ const uploadPortrait = async () => {
     portrait.value = await authApi.uploadPortrait(portraitFile.value, portraitConsent.value);
     portraitUploaded.value = true;
     try { setPortraitPreview(await authApi.getPortraitContent()); }
-    catch { portraitError.value = "The portrait was saved, but its private preview could not be loaded."; }
+    catch { setPortraitPreview(null); portraitError.value = "The portrait was saved, but its private preview could not be loaded."; }
   }
   catch (error) { portraitError.value = axios.isAxiosError(error) && typeof error.response?.data?.error === "string" ? error.response.data.error : "The portrait could not be uploaded."; }
   finally { portraitBusy.value = false; }

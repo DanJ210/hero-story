@@ -63,8 +63,13 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 ### Still deferred
 
 - A revision-history read endpoint and the UI that would consume it.
-- Approval of the draft consent notice/provider scope and the product decision for likeness access by minors; see [likeness-consent-policy-review.md](likeness-consent-policy-review.md).
-- Export auditing, because no export operation exists to connect it to.
+- Hero-likeness policy decisions:
+  1. Approve or replace the notice wording and the `hero-likeness-v1` policy-version identifier; confirm that it explains purpose, provider, and output retention and provide any required wording or privacy-notice links.
+  2. Confirm whether `openai-images` is sufficiently narrow and which image API/model operations it covers. A different provider requires a distinct scope and a new user grant.
+  3. Decide whether minors may use hero-likeness personalization. The account model has no age-band information.
+  4. Confirm provider-side portrait retention and deletion expectations and whether the in-flight request boundary matches that policy. Application deletion removes private portrait blobs, but it cannot recall data already sent in a provider request.
+  5. Define retention and access rules for the consent/audit records.
+  6. Revisit export auditing when a real export operation exists. No export endpoint or event is present.
 
 ## Near-term (MVP completion)
 

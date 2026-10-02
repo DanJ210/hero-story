@@ -94,7 +94,7 @@ public class UserPortraitService : IUserPortraitService
         }
         await RevokeConsentAsync(userId, activePortraits.Select(candidate => candidate.Id).ToArray(), "portrait_replaced", userId, now, cancellationToken);
         await SettleOutstandingJobsAsync(userId, activePortraits.Select(candidate => candidate.Id).ToArray(), "PortraitReplaced", now, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveChangesHandlingJobConcurrencyAsync(cancellationToken);
 
         return ToDto(portrait, consentValid: true);
     }
@@ -144,7 +144,7 @@ public class UserPortraitService : IUserPortraitService
         var outstandingJobs = await SettleOutstandingJobsAsync(userId, portraitIds, "PortraitDeleted", now, cancellationToken);
 
         await DisableSessionLikenessAsync(userId, portraitIds, now, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveChangesHandlingJobConcurrencyAsync(cancellationToken);
 
         return new PortraitPurgeResult(portraits.Count, blobNames.Count, outstandingJobs);
     }
@@ -170,7 +170,7 @@ public class UserPortraitService : IUserPortraitService
         await RevokeConsentAsync(userId, portraitIds, "portrait_disabled", userId, now, cancellationToken);
         await SettleOutstandingJobsAsync(userId, portraitIds, "PortraitDisabled", now, cancellationToken);
         await DisableSessionLikenessAsync(userId, portraitIds, now, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveChangesHandlingJobConcurrencyAsync(cancellationToken);
         return true;
     }
 
@@ -306,6 +306,47 @@ public class UserPortraitService : IUserPortraitService
         }
 
         return jobs.Count;
+    }
+
+    private async Task<int> SaveChangesHandlingJobConcurrencyAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            try
+            {
+                return await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException exception) when (
+                exception.Entries.Count > 0 && exception.Entries.All(entry => entry.Entity is GenerationJob))
+            {
+                foreach (var entry in exception.Entries)
+                {
+                    var job = (GenerationJob)entry.Entity;
+                    await entry.ReloadAsync(cancellationToken);
+                    var settlementAudit = _dbContext.PortraitAuditEvents.Local.FirstOrDefault(audit =>
+                        audit.GenerationJobId == job.Id
+                        && audit.EventType == "likeness_job_settled"
+                        && _dbContext.Entry(audit).State == EntityState.Added);
+
+                    if (job.Status is JobStatus.Completed or JobStatus.Poisoned || entry.State == EntityState.Detached)
+                    {
+                        if (settlementAudit is not null)
+                        {
+                            _dbContext.Entry(settlementAudit).State = EntityState.Detached;
+                        }
+
+                        continue;
+                    }
+
+                    var now = DateTime.UtcNow;
+                    var reason = settlementAudit?.DetailCode ?? "ConsentRevoked";
+                    job.Status = JobStatus.Poisoned;
+                    job.CompletedAt ??= now;
+                    job.ErrorDetail = $"{reason}: Likeness consent was revoked before artwork generation completed.";
+                    job.UpdatedAt = now;
+                }
+            }
+        }
     }
 
     private static PortraitAuditEvent CreateAuditEvent(

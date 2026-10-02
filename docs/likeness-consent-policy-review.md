@@ -20,17 +20,12 @@ The upload control presents this text:
 
 > I own or am authorized to use this image. I consent to private storage and to OpenAI image generation using it only as a reference for my story artwork.
 
-The page also states that generated artwork remains part of the story after portrait removal. Please confirm that the notice clearly explains the purpose, provider, and output-retention behavior, and supply any required wording or links to a privacy notice.
+The page also states that generated artwork remains part of the story after portrait removal.
 
-## Decisions required
+## Policy decisions
 
-1. Approve or replace the notice wording and the `hero-likeness-v1` policy-version identifier.
-2. Confirm whether `openai-images` is sufficiently narrow and which image API/model operations it covers. A different provider requires a distinct scope and a new user grant.
-3. Decide whether minors may use hero-likeness personalization. The product documentation leaves this decision open, and the account model has no age-band information.
-4. Confirm provider-side portrait retention and deletion expectations. Application deletion removes private portrait blobs, but it cannot recall data already sent in a provider request.
-5. Define retention and access rules for the consent/audit records.
-6. Revisit export auditing when a real export operation exists. No export endpoint or event is present.
+The open product and privacy decisions are tracked in the [roadmap](roadmap.md).
 
 ## In-flight provider requests
 
-Revocation prevents queued work and work not yet dispatched from using the portrait. A provider request already in flight cannot be recalled; if the grant or portrait is revoked before the result is attached, the application discards that result. Confirm that this boundary matches the intended provider-retention policy.
+Revocation prevents queued work and work that has not been dispatched from using the portrait. A provider request already in flight cannot be recalled; if the grant or portrait is revoked before the result is attached, the application discards that result.

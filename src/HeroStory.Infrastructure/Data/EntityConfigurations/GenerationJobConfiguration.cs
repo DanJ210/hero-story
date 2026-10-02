@@ -10,6 +10,7 @@ public class GenerationJobConfiguration : IEntityTypeConfiguration<GenerationJob
     {
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Prompt).HasMaxLength(8000).IsRequired();
+        builder.Property(x => x.Status).IsConcurrencyToken();
         builder.HasIndex(x => x.PortraitId);
         builder.HasIndex(x => x.PortraitConsentRecordId);
         builder.Property(x => x.CreatedAt).IsRequired();

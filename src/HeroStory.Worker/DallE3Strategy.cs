@@ -32,9 +32,10 @@ public class DallE3Strategy : IImageGeneratorStrategy
     public async Task GenerateAsync(GenerationJob job, CancellationToken cancellationToken)
     {
         var ownerUserId = Guid.Empty;
+        Scene? scene = null;
         try
         {
-            var scene = await _dbContext.Scenes
+            scene = await _dbContext.Scenes
                 .Include(s => s.Session)
                 .SingleAsync(x => x.Id == job.SceneId, cancellationToken);
             ownerUserId = scene.Session.UserId;
@@ -94,7 +95,14 @@ public class DallE3Strategy : IImageGeneratorStrategy
         }
         catch (Exception ex)
         {
-            if (job.PortraitId is not null && ex is ArtworkPolicyException policyException)
+            await _dbContext.Entry(job).ReloadAsync(cancellationToken);
+            if (ex is DbUpdateConcurrencyException && scene is not null)
+            {
+                await _dbContext.Entry(scene).ReloadAsync(cancellationToken);
+            }
+
+            var policyException = ex as ArtworkPolicyException;
+            if (job.PortraitId is not null && (policyException is not null || job.Status == Core.Enums.JobStatus.Poisoned))
             {
                 _dbContext.PortraitAuditEvents.Add(new PortraitAuditEvent
                 {
@@ -107,20 +115,34 @@ public class DallE3Strategy : IImageGeneratorStrategy
                     SessionId = job.SessionId,
                     SceneId = job.SceneId,
                     GenerationJobId = job.Id,
-                    DetailCode = policyException.Code,
+                    DetailCode = policyException?.Code ?? ArtworkErrorCode.PortraitConsentMissing,
                     OccurredAt = DateTime.UtcNow
                 });
             }
 
-            if (job.Status != Core.Enums.JobStatus.Poisoned)
+            if (job.Status is not (Core.Enums.JobStatus.Poisoned or Core.Enums.JobStatus.Completed))
             {
                 job.Status = Core.Enums.JobStatus.Failed;
-                job.ErrorDetail = ex is ArtworkPolicyException artworkPolicyException
-                    ? $"{artworkPolicyException.Code}: {artworkPolicyException.Message}"
+                job.ErrorDetail = policyException is not null
+                    ? $"{policyException.Code}: {policyException.Message}"
                     : ex.Message;
                 job.UpdatedAt = DateTime.UtcNow;
             }
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                await _dbContext.Entry(job).ReloadAsync(cancellationToken);
+                if (scene is not null)
+                {
+                    await _dbContext.Entry(scene).ReloadAsync(cancellationToken);
+                }
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
             throw;
         }
     }
