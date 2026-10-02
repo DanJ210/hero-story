@@ -386,6 +386,82 @@ public class SceneServiceTests
     }
 
     [Fact]
+    public async Task CreateSceneAsync_EnqueuesArtworkBeforeCompactionAndSurvivesCompactionTimeout()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Compaction timeout");
+        session.ContinuitySummary = "Previously accepted rollup.";
+        session.ContinuitySummaryThroughSequence = 1;
+        for (var sequenceNumber = 1; sequenceNumber <= 10; sequenceNumber++)
+        {
+            session.Scenes.Add(CreatePreviousScene(session.Id, sequenceNumber, $"STATE_{sequenceNumber}"));
+        }
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var callOrder = new List<string>();
+        var queue = new Mock<AzureQueueClient>();
+        queue.Setup(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => callOrder.Add("enqueue"))
+            .Returns(Task.CompletedTask);
+        var continuity = CreateContinuitySummaryService();
+        continuity
+            .Setup(summaryService => summaryService.CompactAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<Scene>>(), It.IsAny<CancellationToken>()))
+            .Callback(() => callOrder.Add("compact"))
+            .ThrowsAsync(new TimeoutException("Compaction provider timed out."));
+        var service = new SceneService(
+            dbContext,
+            CreateApprovedModeration().Object,
+            CreateTextService(StoryBeat.Major).Object,
+            queue.Object,
+            continuitySummaryService: continuity.Object);
+
+        var result = await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue"), CancellationToken.None);
+
+        Assert.Equal(11, result.SequenceNumber);
+        Assert.Equal(new[] { "enqueue", "compact" }, callOrder);
+        queue.Verify(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal("Previously accepted rollup.", session.ContinuitySummary);
+        Assert.Equal(1, session.ContinuitySummaryThroughSequence);
+    }
+
+    [Fact]
+    public async Task CreateSceneAsync_CallerCancellationDuringCompactionPropagatesAndRestoresSummary()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Compaction cancelled");
+        session.ContinuitySummary = "Previously accepted rollup.";
+        session.ContinuitySummaryThroughSequence = 1;
+        for (var sequenceNumber = 1; sequenceNumber <= 10; sequenceNumber++)
+        {
+            session.Scenes.Add(CreatePreviousScene(session.Id, sequenceNumber, $"STATE_{sequenceNumber}"));
+        }
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        using var cancellation = new CancellationTokenSource();
+        var continuity = CreateContinuitySummaryService();
+        continuity
+            .Setup(summaryService => summaryService.CompactAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<Scene>>(), It.IsAny<CancellationToken>()))
+            .Callback(() => cancellation.Cancel())
+            .ThrowsAsync(new OperationCanceledException());
+        var service = new SceneService(
+            dbContext,
+            CreateApprovedModeration().Object,
+            CreateTextService(StoryBeat.Standard).Object,
+            CreateQueue().Object,
+            continuitySummaryService: continuity.Object);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue"), cancellation.Token));
+
+        Assert.Equal("Previously accepted rollup.", session.ContinuitySummary);
+        Assert.Equal(1, session.ContinuitySummaryThroughSequence);
+    }
+
+    [Fact]
     public async Task CreateSceneAsync_UsesExplicitEmptyContextForFirstTurn()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;

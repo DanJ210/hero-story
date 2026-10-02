@@ -74,6 +74,7 @@ The endpoint creates or reuses the user configured by `DEV_AUTH_EMAIL` and issue
 - API business logic lives in services, not controllers.
 - Infrastructure adapters are in `HeroStory.Infrastructure`.
 - Continuity compaction is tuned with `STORY_CONTINUITY_RECENT_TURNS` (default `6`, clamped to `2`-`20`), `STORY_CONTINUITY_COMPACTION_INTERVAL` (default `4`, clamped to `1`-`20`), and `STORY_CONTINUITY_MAX_CHARACTERS` (default `12000`, clamped to `2000`-`40000`). The character setting bounds generation context; it does not change the fixed 4,000-character limit on a persisted summary.
+- `OPENAI_REQUEST_TIMEOUT_SECONDS` sets the per-request timeout for OpenAI chat, moderation, and image-generation calls in seconds. It defaults to `30`; values that are not positive integers also use the default.
 - Worker strategy selection is controlled by `IMAGE_STRATEGY` (for example `placeholder` or `dalle3`).
 - Queue retries and poison handling are controlled through `AZURE_QUEUE_*` settings. Keep the worker's `AZURE_QUEUE_VISIBILITY_TIMEOUT_SECONDS` above observed image-provider latency so redelivery does not duplicate in-flight generation.
 - Private portraits are stored in the container named by `AZURE_BLOB_PORTRAITS_CONTAINER`, which must be a private container separate from `AZURE_BLOB_IMAGES_CONTAINER`. The API and worker must resolve the same container name.

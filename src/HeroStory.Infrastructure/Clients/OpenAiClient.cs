@@ -21,7 +21,7 @@ public class OpenAiClient
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
         }
 
-        var timeoutSeconds = int.TryParse(_configuration["OPENAI_REQUEST_TIMEOUT_SECONDS"], out var parsedTimeout)
+        var timeoutSeconds = int.TryParse(_configuration["OPENAI_REQUEST_TIMEOUT_SECONDS"],         out var parsedTimeout) && parsedTimeout > 0
             ? parsedTimeout
             : 30;
         _requestTimeout = TimeSpan.FromSeconds(timeoutSeconds);
@@ -34,22 +34,34 @@ public class OpenAiClient
         var maxTokens = int.TryParse(_configuration["OPENAI_TEXT_MAX_TOKENS"], out var parsedMaxTokens) ? parsedMaxTokens : 1400;
         var temperature = decimal.TryParse(_configuration["OPENAI_TEXT_TEMPERATURE"], out var parsedTemperature) ? parsedTemperature : 0.85m;
 
-        var response = await _httpClient.PostAsJsonAsync("/v1/chat/completions", new
-        {
-            model,
-            max_tokens = maxTokens,
-            temperature,
-            response_format = new { type = "json_object" },
-            messages = new[]
-            {
-                new { role = "system", content = "You are a collaborative fantasy storyteller." },
-                new { role = "user", content = prompt }
-            }
-        }, cancellationToken);
+        using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCancellation.CancelAfter(_requestTimeout);
 
-        response.EnsureSuccessStatusCode();
-        var payload = await response.Content.ReadFromJsonAsync<ChatResponse>(cancellationToken: cancellationToken)
-            ?? throw new InvalidOperationException("OpenAI chat response was empty.");
+        ChatResponse payload;
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("/v1/chat/completions", new
+            {
+                model,
+                max_tokens = maxTokens,
+                temperature,
+                response_format = new { type = "json_object" },
+                messages = new[]
+                {
+                    new { role = "system", content = "You are a collaborative fantasy storyteller." },
+                    new { role = "user", content = prompt }
+                }
+            }, timeoutCancellation.Token);
+
+            response.EnsureSuccessStatusCode();
+            payload = await response.Content.ReadFromJsonAsync<ChatResponse>(cancellationToken: timeoutCancellation.Token)
+                ?? throw new InvalidOperationException("OpenAI chat response was empty.");
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"OpenAI chat completion did not respond within {_requestTimeout.TotalSeconds:0} seconds.");
+        }
+
         return payload.Choices.FirstOrDefault()?.Message.Content?.Trim()
             ?? throw new InvalidOperationException("OpenAI chat response did not include a message.");
     }
@@ -59,10 +71,22 @@ public class OpenAiClient
     public virtual async Task<IReadOnlyList<string>> GetFlaggedCategoriesAsync(string input, CancellationToken cancellationToken)
     {
         var model = _configuration["OPENAI_MODERATION_MODEL"] ?? "omni-moderation-latest";
-        var response = await _httpClient.PostAsJsonAsync("/v1/moderations", new { model, input }, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        var payload = await response.Content.ReadFromJsonAsync<ModerationResponse>(cancellationToken: cancellationToken)
-            ?? throw new InvalidOperationException("OpenAI moderation response was empty.");
+        using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCancellation.CancelAfter(_requestTimeout);
+
+        ModerationResponse payload;
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("/v1/moderations", new { model, input }, timeoutCancellation.Token);
+            response.EnsureSuccessStatusCode();
+            payload = await response.Content.ReadFromJsonAsync<ModerationResponse>(cancellationToken: timeoutCancellation.Token)
+                ?? throw new InvalidOperationException("OpenAI moderation response was empty.");
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"OpenAI moderation did not respond within {_requestTimeout.TotalSeconds:0} seconds.");
+        }
+
         var result = payload.Results.FirstOrDefault();
         if (result is null || !result.Flagged)
         {

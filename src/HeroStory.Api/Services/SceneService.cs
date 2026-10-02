@@ -284,13 +284,14 @@ public class SceneService : ISceneService
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        await TryCompactContinuitySummaryAsync(session, continuitySummaryInvalidated, cancellationToken);
-
+        // Enqueue before compaction so a slow or failed summary call cannot strand the persisted job.
         if (job is not null)
         {
             var message = JsonSerializer.Serialize(new { jobId = job.Id, sceneId = scene.Id, sessionId });
             await _queueClient.EnqueueAsync(message, cancellationToken);
         }
+
+        await TryCompactContinuitySummaryAsync(session, continuitySummaryInvalidated, cancellationToken);
 
         return SceneDtoMapper.ToDto(scene);
     }
@@ -485,6 +486,14 @@ public class SceneService : ISceneService
             session.ContinuitySummaryUpdatedAt = DateTime.UtcNow;
             session.UpdatedAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            session.ContinuitySummary = existingSummary;
+            session.ContinuitySummaryThroughSequence = existingThroughSequence;
+            session.ContinuitySummaryUpdatedAt = existingUpdatedAt;
+            session.UpdatedAt = existingSessionUpdatedAt;
+            throw;
         }
         catch (Exception exception)
         {
