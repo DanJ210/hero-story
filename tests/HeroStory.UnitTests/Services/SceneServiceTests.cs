@@ -564,10 +564,15 @@ public class SceneServiceTests
         dbContext.Add(session);
         await dbContext.SaveChangesAsync();
 
+        var capturedPrompt = string.Empty;
+        var text = new Mock<IOpenAiTextService>();
+        text.Setup(service => service.GenerateTurnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((prompt, _) => capturedPrompt = prompt)
+            .ReturnsAsync(CreateGeneratedTurn());
         var service = new SceneService(
             dbContext,
             CreateApprovedModeration().Object,
-            CreateTextService(StoryBeat.Standard).Object,
+            text.Object,
             CreateQueue().Object);
 
         await service.ReviseLatestSceneAsync(
@@ -577,9 +582,51 @@ public class SceneServiceTests
             new ReviseSceneRequest("Try a different route"),
             CancellationToken.None);
 
+        Assert.DoesNotContain("Rollup containing the version being replaced.", capturedPrompt);
         Assert.Equal(string.Empty, session.ContinuitySummary);
         Assert.Equal(0, session.ContinuitySummaryThroughSequence);
         Assert.Null(session.ContinuitySummaryUpdatedAt);
+    }
+
+    [Fact]
+    public async Task ReviseLatestSceneAsync_PreservesRollupWhenReplacementGenerationFails()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Failed revision preserves rollup");
+        session.ContinuitySummary = "Rollup containing the version being replaced.";
+        session.ContinuitySummaryThroughSequence = 2;
+        session.ContinuitySummaryUpdatedAt = DateTime.UtcNow;
+        var originalSummaryUpdatedAt = session.ContinuitySummaryUpdatedAt;
+        var parent = CreatePreviousScene(session.Id, 1, "PARENT_STATE");
+        var target = CreatePreviousScene(session.Id, 2, "SUPERSEDED_STATE");
+        target.ParentSceneId = parent.Id;
+        session.Scenes.Add(parent);
+        session.Scenes.Add(target);
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var text = new Mock<IOpenAiTextService>();
+        text.Setup(service => service.GenerateTurnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Generation failed."));
+        var service = new SceneService(
+            dbContext,
+            CreateApprovedModeration().Object,
+            text.Object,
+            CreateQueue().Object);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReviseLatestSceneAsync(
+            session.UserId,
+            session.Id,
+            target.Id,
+            new ReviseSceneRequest("Try a different route"),
+            CancellationToken.None));
+
+        Assert.Equal("Rollup containing the version being replaced.", session.ContinuitySummary);
+        Assert.Equal(2, session.ContinuitySummaryThroughSequence);
+        Assert.Equal(originalSummaryUpdatedAt, session.ContinuitySummaryUpdatedAt);
+        Assert.True(target.IsActive);
+        Assert.Equal(2, await dbContext.Scenes.CountAsync());
     }
 
     [Fact]

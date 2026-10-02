@@ -190,7 +190,11 @@ public class SceneService : ISceneService
             throw new InvalidOperationException(moderation.Detail ?? "Scene input was rejected.");
         }
 
-        var prompt = BuildPrompt(session, continuityScene, activeScenes, choiceText);
+        var continuitySummary = supersededScene is not null
+            && session.ContinuitySummaryThroughSequence >= supersededScene.SequenceNumber
+                ? string.Empty
+                : session.ContinuitySummary;
+        var prompt = BuildPrompt(session, continuityScene, activeScenes, choiceText, continuitySummary);
         var generatedTurn = await _openAiTextService.GenerateTurnAsync(prompt, cancellationToken);
         var outputModeration = await _moderationService.ModerateOutputAsync(generatedTurn.NarrativeText, cancellationToken);
         if (requireEpisodeComplete && !generatedTurn.IsEpisodeComplete)
@@ -368,11 +372,16 @@ public class SceneService : ISceneService
         return continuitySummaryInvalidated;
     }
 
-    private string BuildPrompt(StorySession session, Scene? latestScene, IReadOnlyList<Scene> activeScenes, string choiceText)
+    private string BuildPrompt(
+        StorySession session,
+        Scene? latestScene,
+        IReadOnlyList<Scene> activeScenes,
+        string choiceText,
+        string continuitySummary)
     {
         var continuityContext = latestScene is null
             ? "This is the opening turn; no prior story state exists. Establish the initial situation without inventing prior events."
-            : BuildContinuityContext(activeScenes, latestScene, session.ContinuitySummary);
+            : BuildContinuityContext(activeScenes, latestScene, continuitySummary);
 
         return $$"""
             Continue an interactive superhero story in which the user is the protagonist.
