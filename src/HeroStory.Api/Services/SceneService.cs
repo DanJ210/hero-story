@@ -479,6 +479,7 @@ public class SceneService : ISceneService
             var scenesToCompact = activeScenes
                 .Take(uncompactedOlderCount)
                 .Where(scene => scene.SequenceNumber > session.ContinuitySummaryThroughSequence)
+                .Take(_continuitySummaryService.CompactionInterval)
                 .ToArray();
 
             if (scenesToCompact.Length == 0
