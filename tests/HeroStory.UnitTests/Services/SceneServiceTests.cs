@@ -285,6 +285,8 @@ public class SceneServiceTests
         var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
         await using var dbContext = new AppDbContext(options);
         var session = CreateSession(Guid.NewGuid(), "Bounded continuity");
+        session.ContinuitySummary = "EARLY_EPISODE_STATE_MARKER: the observatory key belongs to Mara.";
+        session.ContinuitySummaryThroughSequence = 1;
         for (var sequenceNumber = 1; sequenceNumber <= 30; sequenceNumber++)
         {
             var scene = CreatePreviousScene(session.Id, sequenceNumber, new string('S', 5000) + sequenceNumber);
@@ -304,6 +306,83 @@ public class SceneServiceTests
 
         Assert.True(capturedPrompt.Length < 20000);
         Assert.Contains("Latest accepted scene summary", capturedPrompt);
+        Assert.Contains("EARLY_EPISODE_STATE_MARKER", capturedPrompt);
+    }
+
+    [Theory]
+    [InlineData(8, 0)]
+    [InlineData(9, 1)]
+    public async Task CreateSceneAsync_CompactsOnlyAfterIntervalThreshold(int priorSceneCount, int expectedCompactionCalls)
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Compaction threshold");
+        for (var sequenceNumber = 1; sequenceNumber <= priorSceneCount; sequenceNumber++)
+        {
+            session.Scenes.Add(CreatePreviousScene(session.Id, sequenceNumber, $"STATE_{sequenceNumber}"));
+        }
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var compactedScenes = Array.Empty<Scene>();
+        var continuity = CreateContinuitySummaryService();
+        continuity
+            .Setup(service => service.CompactAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<Scene>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IReadOnlyList<Scene>, CancellationToken>((_, scenes, _) => compactedScenes = scenes.ToArray())
+            .ReturnsAsync("Compacted accepted facts and threads.");
+        var service = new SceneService(
+            dbContext,
+            CreateApprovedModeration().Object,
+            CreateTextService(StoryBeat.Standard).Object,
+            CreateQueue().Object,
+            continuitySummaryService: continuity.Object);
+
+        await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue"), CancellationToken.None);
+
+        continuity.Verify(
+            summaryService => summaryService.CompactAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<Scene>>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(expectedCompactionCalls));
+        Assert.Equal(expectedCompactionCalls == 0 ? 0 : 4, compactedScenes.Length);
+        if (expectedCompactionCalls > 0)
+        {
+            Assert.Equal(4, session.ContinuitySummaryThroughSequence);
+            Assert.Equal("Compacted accepted facts and threads.", session.ContinuitySummary);
+            Assert.NotNull(session.ContinuitySummaryUpdatedAt);
+        }
+    }
+
+    [Fact]
+    public async Task CreateSceneAsync_CompactionFailureDoesNotFailAcceptedTurn()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Compaction failure");
+        session.ContinuitySummary = "Previously accepted rollup.";
+        session.ContinuitySummaryThroughSequence = 1;
+        for (var sequenceNumber = 1; sequenceNumber <= 10; sequenceNumber++)
+        {
+            session.Scenes.Add(CreatePreviousScene(session.Id, sequenceNumber, $"STATE_{sequenceNumber}"));
+        }
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var continuity = CreateContinuitySummaryService();
+        continuity
+            .Setup(summaryService => summaryService.CompactAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<Scene>>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("Compaction provider unavailable."));
+        var service = new SceneService(
+            dbContext,
+            CreateApprovedModeration().Object,
+            CreateTextService(StoryBeat.Standard).Object,
+            CreateQueue().Object,
+            continuitySummaryService: continuity.Object);
+
+        var result = await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue"), CancellationToken.None);
+
+        Assert.Equal(11, result.SequenceNumber);
+        Assert.Equal(11, await dbContext.Scenes.CountAsync(scene => scene.SessionId == session.Id && scene.IsActive));
+        Assert.Equal("Previously accepted rollup.", session.ContinuitySummary);
+        Assert.Equal(1, session.ContinuitySummaryThroughSequence);
     }
 
     [Fact]
@@ -390,6 +469,41 @@ public class SceneServiceTests
         Assert.Equal(new[] { parent.Id, storedReplacement.Id }, activeScenes.Select(scene => scene.Id));
         Assert.Contains("PARENT_STATE", capturedPrompt);
         Assert.DoesNotContain("SUPERSEDED_STATE", capturedPrompt);
+    }
+
+    [Fact]
+    public async Task ReviseLatestSceneAsync_ResetsRollupWhenItCoversSupersededTurn()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Revision resets rollup");
+        session.ContinuitySummary = "Rollup containing the version being replaced.";
+        session.ContinuitySummaryThroughSequence = 2;
+        session.ContinuitySummaryUpdatedAt = DateTime.UtcNow;
+        var parent = CreatePreviousScene(session.Id, 1, "PARENT_STATE");
+        var target = CreatePreviousScene(session.Id, 2, "SUPERSEDED_STATE");
+        target.ParentSceneId = parent.Id;
+        session.Scenes.Add(parent);
+        session.Scenes.Add(target);
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var service = new SceneService(
+            dbContext,
+            CreateApprovedModeration().Object,
+            CreateTextService(StoryBeat.Standard).Object,
+            CreateQueue().Object);
+
+        await service.ReviseLatestSceneAsync(
+            session.UserId,
+            session.Id,
+            target.Id,
+            new ReviseSceneRequest("Try a different route"),
+            CancellationToken.None);
+
+        Assert.Equal(string.Empty, session.ContinuitySummary);
+        Assert.Equal(0, session.ContinuitySummaryThroughSequence);
+        Assert.Null(session.ContinuitySummaryUpdatedAt);
     }
 
     [Fact]
@@ -551,6 +665,15 @@ public class SceneServiceTests
         var queue = new Mock<AzureQueueClient>();
         queue.Setup(client => client.EnqueueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         return queue;
+    }
+
+    private static Mock<IContinuitySummaryService> CreateContinuitySummaryService(int recentTurns = 6, int interval = 4)
+    {
+        var continuity = new Mock<IContinuitySummaryService>();
+        continuity.SetupGet(service => service.RecentTurns).Returns(recentTurns);
+        continuity.SetupGet(service => service.CompactionInterval).Returns(interval);
+        continuity.SetupGet(service => service.MaximumContextCharacters).Returns(12000);
+        return continuity;
     }
 
     private static Mock<IOpenAiTextService> CreateTextService(StoryBeat storyBeat)

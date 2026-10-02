@@ -333,6 +333,16 @@ namespace HeroStory.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ContinuitySummary")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ContinuitySummaryThroughSequence")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ContinuitySummaryUpdatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 

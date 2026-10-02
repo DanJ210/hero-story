@@ -13,6 +13,7 @@ public class StorySessionConfiguration : IEntityTypeConfiguration<StorySession>
         builder.Property(x => x.Genre).HasMaxLength(100).IsRequired();
         builder.Property(x => x.HeroArchetype).HasMaxLength(100).IsRequired();
         builder.Property(x => x.HeroName).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.ContinuitySummary).IsRequired();
         builder.Property(x => x.CreatedAt).IsRequired();
         builder.Property(x => x.UpdatedAt).IsRequired();
         builder.HasMany(x => x.Scenes).WithOne(x => x.Session).HasForeignKey(x => x.SessionId);

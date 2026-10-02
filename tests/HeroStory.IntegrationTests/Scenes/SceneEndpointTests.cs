@@ -33,6 +33,9 @@ public class SceneEndpointTests
                 Genre = "Superhero",
                 HeroArchetype = "Guardian",
                 HeroName = "Ari",
+                ContinuitySummary = "Internal continuity marker.",
+                ContinuitySummaryThroughSequence = 12,
+                ContinuitySummaryUpdatedAt = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -63,6 +66,9 @@ public class SceneEndpointTests
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"storyBeat\":\"major\"", json);
         Assert.Contains("\"artworkStatus\":\"notRequested\"", json);
+        Assert.DoesNotContain("continuitySummary", json);
+        Assert.DoesNotContain("continuitySummaryThroughSequence", json);
+        Assert.DoesNotContain("continuitySummaryUpdatedAt", json);
     }
 
     [Fact]
@@ -72,6 +78,9 @@ public class SceneEndpointTests
         using var client = fixture.CreateClient();
         var userId = await AuthenticateDevelopmentUserAsync(fixture, client);
         var session = CreateSession(userId);
+        session.ContinuitySummary = "Internal continuity marker.";
+        session.ContinuitySummaryThroughSequence = 12;
+        session.ContinuitySummaryUpdatedAt = DateTime.UtcNow;
         var activeScene = CreateScene(session.Id, 1, "Active path", true);
         var supersededScene = CreateScene(session.Id, 2, "Superseded path", false);
 
@@ -83,12 +92,16 @@ public class SceneEndpointTests
         }
 
         var response = await client.GetAsync($"/api/sessions/{session.Id}/scenes");
+        var json = await response.Content.ReadAsStringAsync();
         var scenes = await response.Content.ReadFromJsonAsync<SceneListResponse[]>();
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(scenes);
         Assert.Single(scenes);
         Assert.Equal(activeScene.Id, scenes[0].Id);
+        Assert.DoesNotContain("continuitySummary", json);
+        Assert.DoesNotContain("continuitySummaryThroughSequence", json);
+        Assert.DoesNotContain("continuitySummaryUpdatedAt", json);
     }
 
     [Fact]
