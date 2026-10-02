@@ -133,6 +133,7 @@ A user may optionally provide a portrait so generated artwork can depict the her
 The feature must follow these boundaries:
 
 - Obtain explicit consent before upload and before the portrait is used for generation.
+- A consent grant identifies its purpose, policy version, provider scope, and the exact portrait version it authorizes; grants are revocable and retained as immutable records.
 - Confirm the uploader has the right to use the image and is providing their own likeness or otherwise authorized material.
 - Do not infer identity, age, ethnicity, health, emotion, or other sensitive traits from the portrait.
 - Keep source portraits private, encrypted, ownership-scoped, and separate from public/generated story assets.

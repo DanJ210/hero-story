@@ -10,9 +10,15 @@ public class GenerationJobConfiguration : IEntityTypeConfiguration<GenerationJob
     {
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Prompt).HasMaxLength(8000).IsRequired();
+        builder.Property(x => x.Status).IsConcurrencyToken();
         builder.HasIndex(x => x.PortraitId);
+        builder.HasIndex(x => x.PortraitConsentRecordId);
         builder.Property(x => x.CreatedAt).IsRequired();
         builder.Property(x => x.UpdatedAt).IsRequired();
         builder.HasIndex(x => x.Status);
+        builder.HasOne<PortraitConsentRecord>()
+            .WithMany()
+            .HasForeignKey(x => x.PortraitConsentRecordId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

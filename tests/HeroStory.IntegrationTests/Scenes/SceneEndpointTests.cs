@@ -189,21 +189,32 @@ public class SceneEndpointTests
         var scene = CreateScene(session.Id, 1, "Portrait provenance", true);
         var consentGrantedAt = DateTime.UtcNow.AddMinutes(-5);
         var portraitId = Guid.NewGuid();
+        var consentRecordId = Guid.NewGuid();
 
         using (var scope = fixture.Services.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             dbContext.AddRange(session, scene);
-            dbContext.UserPortraits.Add(new UserPortrait
+            var portrait = new UserPortrait
             {
                 Id = portraitId,
                 UserId = userId,
                 BlobName = "users/test/portraits/portrait-a",
                 ContentType = "image/jpeg",
                 ContentLength = 2048,
-                ConsentGrantedAt = consentGrantedAt,
                 CreatedAt = consentGrantedAt
+            };
+            portrait.ConsentRecords.Add(new PortraitConsentRecord
+            {
+                Id = consentRecordId,
+                UserId = userId,
+                PortraitId = portraitId,
+                Purpose = PortraitConsentPolicy.Purpose,
+                PolicyVersion = PortraitConsentPolicy.PolicyVersion,
+                ProviderScope = PortraitConsentPolicy.ProviderScope,
+                GrantedAt = consentGrantedAt
             });
+            dbContext.UserPortraits.Add(portrait);
             await dbContext.SaveChangesAsync();
         }
 
@@ -214,8 +225,12 @@ public class SceneEndpointTests
         var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
         var job = verificationContext.GenerationJobs.Single(job => job.SceneId == scene.Id);
         Assert.Equal(portraitId, job.PortraitId);
-        Assert.Equal(consentGrantedAt, job.PortraitConsentGrantedAt);
+        Assert.Equal(consentRecordId, job.PortraitConsentRecordId);
         Assert.Equal(JobStatus.Queued, job.Status);
+        var audit = verificationContext.PortraitAuditEvents.Single();
+        Assert.Equal("likeness_use_requested", audit.EventType);
+        Assert.Equal(userId, audit.SubjectUserId);
+        Assert.Equal(job.Id, audit.GenerationJobId);
     }
 
     private static async Task<Guid> AuthenticateDevelopmentUserAsync(DevelopmentApiFixture fixture, HttpClient client)

@@ -19,6 +19,7 @@ It is the single home for delivery status. Other docs describe behavior in prese
 - Active-path scene and workspace reads exclude superseded turns; continuation records parent lineage.
 - The workspace exposes an inline latest-turn revision editor, refreshes the active timeline after replacement, and restores focus to the replacement turn.
 - Development authentication, SQL migrations, OpenAI moderation, and safe external-service errors support local vertical-slice testing.
+- Versioned likeness consent, portrait-lifecycle auditing, and worker-side consent revalidation are implemented with a focused policy-review follow-up.
 
 ### Current milestone
 
@@ -56,11 +57,19 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
    - [x] Slice 2: add portrait disable/replace flows and enforce active consented portrait provenance so stale queued likeness jobs fail closed.
    - [x] Slice 3: complete deletion semantics so portrait and account deletion remove superseded portrait blobs, settle outstanding likeness jobs, and apply a stated retention policy for artwork already generated from the deleted source.
    - [x] Slice 4: add end-to-end likeness policy tests covering missing consent, reference expiry, superseded scenes, and deletion during an in-flight job.
+   - [x] Phase 4: replace timestamp-only consent provenance with immutable purpose/version/provider-scoped grants and append-only lifecycle audit events.
+   - [x] Phase 4: enforce consent validity and revocation at the worker provider boundary, and audit requested, started, rejected, and settled likeness work.
 
 ### Still deferred
 
 - A revision-history read endpoint and the UI that would consume it.
-- A dedicated consent entity covering purpose, policy version, and provider scope, plus an audit trail for portrait upload, use, replacement, disablement, export, and deletion.
+- Hero-likeness policy decisions:
+  1. Approve or replace the notice wording and the `hero-likeness-v1` policy-version identifier; confirm that it explains purpose, provider, and output retention and provide any required wording or privacy-notice links.
+  2. Confirm whether `openai-images` is sufficiently narrow and which image API/model operations it covers. A different provider requires a distinct scope and a new user grant.
+  3. Decide whether minors may use hero-likeness personalization. The account model has no age-band information.
+  4. Confirm provider-side portrait retention and deletion expectations and whether the in-flight request boundary matches that policy. Application deletion removes private portrait blobs, but it cannot recall data already sent in a provider request.
+  5. Define retention and access rules for the consent/audit records.
+  6. Revisit export auditing when a real export operation exists. No export endpoint or event is present.
 
 ## Near-term (MVP completion)
 
