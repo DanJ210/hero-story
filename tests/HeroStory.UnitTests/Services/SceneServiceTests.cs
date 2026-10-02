@@ -352,6 +352,7 @@ public class SceneServiceTests
     [Theory]
     [InlineData(8, 0)]
     [InlineData(9, 1)]
+    [InlineData(15, 1)]
     public async Task CreateSceneAsync_CompactsOnlyAfterIntervalThreshold(int priorSceneCount, int expectedCompactionCalls)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
@@ -385,10 +386,48 @@ public class SceneServiceTests
         Assert.Equal(expectedCompactionCalls == 0 ? 0 : 4, compactedScenes.Length);
         if (expectedCompactionCalls > 0)
         {
+            Assert.Equal(Enumerable.Range(1, 4), compactedScenes.Select(scene => scene.SequenceNumber));
             Assert.Equal(4, session.ContinuitySummaryThroughSequence);
             Assert.Equal("Compacted accepted facts and threads.", session.ContinuitySummary);
             Assert.NotNull(session.ContinuitySummaryUpdatedAt);
         }
+    }
+
+    [Fact]
+    public async Task CreateSceneAsync_CompactsOldestBatchesAndAdvancesCoverageIncrementally()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new AppDbContext(options);
+        var session = CreateSession(Guid.NewGuid(), "Incremental compaction");
+        for (var sequenceNumber = 1; sequenceNumber <= 15; sequenceNumber++)
+        {
+            session.Scenes.Add(CreatePreviousScene(session.Id, sequenceNumber, $"STATE_{sequenceNumber}"));
+        }
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+
+        var compactedBatches = new List<int[]>();
+        var continuity = CreateContinuitySummaryService();
+        continuity
+            .Setup(service => service.CompactAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<Scene>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IReadOnlyList<Scene>, CancellationToken>((_, scenes, _) =>
+                compactedBatches.Add(scenes.Select(scene => scene.SequenceNumber).ToArray()))
+            .ReturnsAsync("Compacted accepted facts and threads.");
+        var service = new SceneService(
+            dbContext,
+            CreateApprovedModeration().Object,
+            CreateTextService(StoryBeat.Standard).Object,
+            CreateQueue().Object,
+            continuitySummaryService: continuity.Object);
+
+        await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue"), CancellationToken.None);
+        Assert.Equal(4, session.ContinuitySummaryThroughSequence);
+
+        await service.CreateSceneAsync(session.UserId, session.Id, new CreateSceneRequest("Continue again"), CancellationToken.None);
+
+        Assert.Equal(new[] { 1, 2, 3, 4 }, compactedBatches[0]);
+        Assert.Equal(new[] { 5, 6, 7, 8 }, compactedBatches[1]);
+        Assert.Equal(8, session.ContinuitySummaryThroughSequence);
     }
 
     [Fact]
