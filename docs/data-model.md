@@ -45,11 +45,13 @@ This document describes the persisted model in present tense. It does not track 
 
 Hero-likeness personalization keeps portrait bytes and source URLs out of `StorySession` and `Scene` entirely. The model separates:
 
-- `UserPortrait` — a private, user-owned record holding the blob reference, content metadata, `ConsentGrantedAt`, and `DisabledAt`/`DeletedAt` retention state. Uploading a replacement disables prior versions rather than mutating them, so version history is preserved.
+- `UserPortrait` — a private, user-owned record holding the blob reference, content metadata, and `DisabledAt`/`DeletedAt` retention state. Uploading a replacement disables prior versions rather than mutating them, so version history is preserved.
+- `PortraitConsentRecord` — an immutable grant tied to one user and portrait version, with purpose, policy version, provider scope, and grant time. Revocation is recorded as an append-only `PortraitAuditEvent`; a grant is never edited or deleted.
+- `PortraitAuditEvent` — an append-only event with actor type, subject user, event type, and only the applicable portrait, consent, session, scene, and job identifiers. It excludes image bytes, blob URLs, prompts, and secrets.
 - `StorySession.LikenessEnabled` — a default-off, session-level opt-in.
-- `GenerationJob.PortraitId` and `GenerationJob.PortraitConsentGrantedAt` — opaque generated-asset provenance that lets the worker revalidate consent without exposing the blob location.
+- `GenerationJob.PortraitId` and `GenerationJob.PortraitConsentRecordId` — opaque portrait-version and consent provenance that lets the worker revalidate consent without exposing the blob location.
 
-Consent is a timestamp on the portrait record rather than a separate immutable consent entity. A dedicated consent record covering purpose, policy version, and provider scope, plus an audit trail for upload, use, replacement, disablement, export, and deletion, is tracked in [roadmap.md](roadmap.md).
+Versioned grants authorize story-artwork likeness use for the recorded provider scope. Replacement, disablement, and deletion revoke the affected grants through audit events and settle outstanding likeness jobs. Legacy timestamp-only portraits do not authorize likeness use and require a new grant.
 
 Portrait deletion and account deletion must account for source blobs across every portrait version, derivative references, queued work, provider retention, and backup expiry.
 
@@ -89,7 +91,7 @@ Use a schema-versioned structured representation. Storage may begin as provider-
 
 - Entity configuration classes live in the infrastructure assembly and are applied from there.
 - The API applies migrations at startup when `DB_APPLY_MIGRATIONS=true`.
-- Committed migrations under `src/HeroStory.Infrastructure/Data/Migrations`, in order: `InitialCreate`, `AddStructuredStoryTurn`, `AddSceneRevisionLineage`, `AddSceneConcurrencyToken`, `AllowMultipleGenerationJobsPerScene`, `AddUserPortraitConsent`, `AddPortraitProvenanceToGenerationJobs`, `AddAutomaticLikenessOptIn`, `AddContinuitySummary`.
+- Committed migrations under `src/HeroStory.Infrastructure/Data/Migrations`, in order: `InitialCreate`, `AddStructuredStoryTurn`, `AddSceneRevisionLineage`, `AddSceneConcurrencyToken`, `AllowMultipleGenerationJobsPerScene`, `AddUserPortraitConsent`, `AddPortraitProvenanceToGenerationJobs`, `AddAutomaticLikenessOptIn`, `AddContinuitySummary`, `AddPortraitConsentAudit`.
 
 ## Related docs
 

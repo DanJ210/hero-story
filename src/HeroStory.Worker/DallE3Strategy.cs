@@ -31,29 +31,41 @@ public class DallE3Strategy : IImageGeneratorStrategy
 
     public async Task GenerateAsync(GenerationJob job, CancellationToken cancellationToken)
     {
+        var ownerUserId = Guid.Empty;
         try
         {
             var scene = await _dbContext.Scenes
                 .Include(s => s.Session)
                 .SingleAsync(x => x.Id == job.SceneId, cancellationToken);
+            ownerUserId = scene.Session.UserId;
 
             var imagePrompt = GenerateImagePrompt(scene);
             byte[] imageBytes;
             if (job.PortraitId is not null)
             {
-                var portrait = await _dbContext.UserPortraits
-                    .Where(candidate => candidate.UserId == scene.Session.UserId
-                        && candidate.DeletedAt == null
-                        && candidate.DisabledAt == null)
-                    .OrderByDescending(candidate => candidate.CreatedAt)
-                    .FirstOrDefaultAsync(cancellationToken)
-                    ?? throw new ArtworkPolicyException(ArtworkErrorCode.PortraitUnavailable, "The consented portrait is no longer available.");
                 var maxReferenceAge = PortraitLikenessPolicy.ResolveReferenceMaxAge(_configuration);
-                PortraitLikenessPolicy.ValidateForGeneration(job, portrait, DateTime.UtcNow, maxReferenceAge);
+                var (portrait, consentRecord) = await LoadAndValidatePortraitAsync(job, scene.Session.UserId, maxReferenceAge, cancellationToken);
                 var portraitsContainer = _configuration["AZURE_BLOB_PORTRAITS_CONTAINER"] ?? "hero-story-portraits";
                 await using var portraitStream = await _blobService.DownloadAsync(portraitsContainer, portrait.BlobName, cancellationToken);
                 await using var normalizedPortrait = await NormalizePortraitAsync(portraitStream, cancellationToken);
+
+                (portrait, consentRecord) = await LoadAndValidatePortraitAsync(job, scene.Session.UserId, maxReferenceAge, cancellationToken);
+                _dbContext.PortraitAuditEvents.Add(new PortraitAuditEvent
+                {
+                    Id = Guid.NewGuid(),
+                    SubjectUserId = scene.Session.UserId,
+                    ActorType = "worker",
+                    EventType = "likeness_provider_use_started",
+                    PortraitId = portrait.Id,
+                    ConsentRecordId = consentRecord.Id,
+                    SessionId = scene.SessionId,
+                    SceneId = scene.Id,
+                    GenerationJobId = job.Id,
+                    OccurredAt = DateTime.UtcNow
+                });
+                await _dbContext.SaveChangesAsync(cancellationToken);
                 imageBytes = await _openAiClient.GenerateImageWithReferenceAsync(imagePrompt, normalizedPortrait, "image/jpeg", cancellationToken);
+                await LoadAndValidatePortraitAsync(job, scene.Session.UserId, maxReferenceAge, cancellationToken);
             }
             else
             {
@@ -82,14 +94,67 @@ public class DallE3Strategy : IImageGeneratorStrategy
         }
         catch (Exception ex)
         {
-            job.Status = Core.Enums.JobStatus.Failed;
-            job.ErrorDetail = ex is ArtworkPolicyException policyException
-                ? $"{policyException.Code}: {policyException.Message}"
-                : ex.Message;
-            job.UpdatedAt = DateTime.UtcNow;
+            if (job.PortraitId is not null && ex is ArtworkPolicyException policyException)
+            {
+                _dbContext.PortraitAuditEvents.Add(new PortraitAuditEvent
+                {
+                    Id = Guid.NewGuid(),
+                    SubjectUserId = ownerUserId,
+                    ActorType = "worker",
+                    EventType = "likeness_use_rejected",
+                    PortraitId = job.PortraitId,
+                    ConsentRecordId = job.PortraitConsentRecordId,
+                    SessionId = job.SessionId,
+                    SceneId = job.SceneId,
+                    GenerationJobId = job.Id,
+                    DetailCode = policyException.Code,
+                    OccurredAt = DateTime.UtcNow
+                });
+            }
+
+            if (job.Status != Core.Enums.JobStatus.Poisoned)
+            {
+                job.Status = Core.Enums.JobStatus.Failed;
+                job.ErrorDetail = ex is ArtworkPolicyException artworkPolicyException
+                    ? $"{artworkPolicyException.Code}: {artworkPolicyException.Message}"
+                    : ex.Message;
+                job.UpdatedAt = DateTime.UtcNow;
+            }
             await _dbContext.SaveChangesAsync(cancellationToken);
             throw;
         }
+    }
+
+    private async Task<(UserPortrait Portrait, PortraitConsentRecord Consent)> LoadAndValidatePortraitAsync(
+        GenerationJob job,
+        Guid userId,
+        TimeSpan maxReferenceAge,
+        CancellationToken cancellationToken)
+    {
+        await _dbContext.Entry(job).ReloadAsync(cancellationToken);
+        var portrait = await _dbContext.UserPortraits
+            .AsNoTracking()
+            .Where(candidate => candidate.UserId == userId && candidate.DeletedAt == null && candidate.DisabledAt == null)
+            .OrderByDescending(candidate => candidate.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new ArtworkPolicyException(ArtworkErrorCode.PortraitUnavailable, "The consented portrait is no longer available.");
+
+        if (job.Status == Core.Enums.JobStatus.Poisoned)
+        {
+            throw new ArtworkPolicyException(ArtworkErrorCode.PortraitConsentMissing, "Likeness consent was revoked before provider use.");
+        }
+
+        var consentRecord = job.PortraitConsentRecordId is Guid consentRecordId
+            ? await _dbContext.PortraitConsentRecords.AsNoTracking()
+                .SingleOrDefaultAsync(candidate => candidate.Id == consentRecordId, cancellationToken)
+            : null;
+        var consentRevoked = consentRecord is not null && await _dbContext.PortraitAuditEvents
+            .AsNoTracking()
+            .AnyAsync(audit => audit.ConsentRecordId == consentRecord.Id && audit.EventType == "consent_revoked", cancellationToken);
+
+        PortraitLikenessPolicy.ValidateForGeneration(
+            job, portrait, consentRecord, userId, consentRevoked, DateTime.UtcNow, maxReferenceAge);
+        return (portrait, consentRecord!);
     }
 
     private async Task CompleteSupersededJobAsync(GenerationJob job, CancellationToken cancellationToken)

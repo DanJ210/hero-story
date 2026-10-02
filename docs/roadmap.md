@@ -19,6 +19,7 @@ It is the single home for delivery status. Other docs describe behavior in prese
 - Active-path scene and workspace reads exclude superseded turns; continuation records parent lineage.
 - The workspace exposes an inline latest-turn revision editor, refreshes the active timeline after replacement, and restores focus to the replacement turn.
 - Development authentication, SQL migrations, OpenAI moderation, and safe external-service errors support local vertical-slice testing.
+- Versioned likeness consent, portrait-lifecycle auditing, and worker-side consent revalidation are implemented with a focused policy-review follow-up.
 
 ### Current milestone
 
@@ -56,11 +57,14 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
    - [x] Slice 2: add portrait disable/replace flows and enforce active consented portrait provenance so stale queued likeness jobs fail closed.
    - [x] Slice 3: complete deletion semantics so portrait and account deletion remove superseded portrait blobs, settle outstanding likeness jobs, and apply a stated retention policy for artwork already generated from the deleted source.
    - [x] Slice 4: add end-to-end likeness policy tests covering missing consent, reference expiry, superseded scenes, and deletion during an in-flight job.
+   - [x] Phase 4: replace timestamp-only consent provenance with immutable purpose/version/provider-scoped grants and append-only lifecycle audit events.
+   - [x] Phase 4: enforce consent validity and revocation at the worker provider boundary, and audit requested, started, rejected, and settled likeness work.
 
 ### Still deferred
 
 - A revision-history read endpoint and the UI that would consume it.
-- A dedicated consent entity covering purpose, policy version, and provider scope, plus an audit trail for portrait upload, use, replacement, disablement, export, and deletion.
+- Approval of the draft consent notice/provider scope and the product decision for likeness access by minors; see [likeness-consent-policy-review.md](likeness-consent-policy-review.md).
+- Export auditing, because no export operation exists to connect it to.
 
 ## Near-term (MVP completion)
 

@@ -7,9 +7,9 @@ public class UserPortrait
     public string BlobName { get; set; } = string.Empty;
     public string ContentType { get; set; } = string.Empty;
     public long ContentLength { get; set; }
-    public DateTime ConsentGrantedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? DisabledAt { get; set; }
     public DateTime? DeletedAt { get; set; }
     public ApplicationUser User { get; set; } = null!;
+    public ICollection<PortraitConsentRecord> ConsentRecords { get; } = new List<PortraitConsentRecord>();
 }

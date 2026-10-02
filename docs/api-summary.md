@@ -29,16 +29,20 @@ The API is implemented in `src/HeroStory.Api` using controller-based endpoints a
 All routes require authentication and are scoped to the calling user. Portrait blobs live in a private container and are never returned as public URLs.
 
 - `GET /api/profile/portrait`
-  - Returns the active portrait metadata, or `404` when none is active.
+  - Returns the active portrait metadata, including whether its versioned likeness consent is valid, or `404` when none is active. It does not return a portrait URL.
+- `GET /api/profile/portrait/content`
+  - Streams the active private portrait to its authenticated owner without exposing its blob reference in a DTO.
+  - Responses are not cached.
 - `POST /api/profile/portrait`
-  - Multipart upload of `file` plus a `consentGranted` form field; rejects uploads without consent.
+  - Multipart upload of `file`, a `consentGranted` form field, and the acknowledged `consentPolicyVersion`; rejects missing consent and stale policy versions.
+  - Records the consent purpose, policy version, provider scope, grant time, and authorized portrait version.
   - Limited to 10 MB. Uploading a replacement disables prior versions instead of mutating them.
   - Returns `201 Created` with portrait metadata.
 - `POST /api/profile/portrait/disable`
-  - Disables the active portrait, clears session likeness opt-ins, and fails stale queued likeness jobs closed.
+  - Disables the active portrait, revokes its consent, clears session likeness opt-ins, and settles outstanding likeness jobs.
   - Returns `204 No Content`, or `404` when no active portrait exists.
 - `DELETE /api/profile/portrait`
-  - Deletes portrait blobs across versions and settles outstanding likeness jobs. Artwork already generated is retained as story output.
+  - Deletes portrait blobs across versions, records deletion and consent-revocation events, and settles outstanding likeness jobs. Artwork already generated is retained as story output.
   - Returns `204 No Content`, or `404` when no active portrait exists.
 
 ## Story session endpoints (`/api/sessions`)
@@ -88,11 +92,13 @@ Scene detail and list responses include an `artworkStatus` value: `notRequested`
 
 - `POST /api/sessions/{id}/scenes/{sceneId}/artwork`
   - Queues an optional artwork request for an owned active scene.
-  - Accepts a `usePortrait` query flag that opts the single request into likeness generation; it requires an active consented portrait and defaults to off.
+  - Accepts a `usePortrait` query flag that opts the single request into likeness generation; it requires an active portrait with an unrevoked consent record valid for the requested purpose and provider scope, and defaults to off.
   - Allows a new request after the prior job has completed, failed, or been poisoned, preserving each job as history.
   - Rejects a duplicate request while the scene already has queued or processing artwork.
 
 Session responses include `likenessEnabled`. Session status values are `active`, `paused`, `completed`, `archived`, and `pendingDeletion`; paused and completed episodes reject new contributions while remaining readable.
+
+Portrait upload, consent grant/revocation, replacement, disablement, deletion, likeness requests, provider-boundary attempts, and job settlement are recorded in an append-only audit stream. The API does not expose an audit or export endpoint.
 
 All continuation and revision operations require authentication, session ownership, input/output moderation, and optimistic conflict handling so concurrent submissions cannot create two active successors accidentally.
 

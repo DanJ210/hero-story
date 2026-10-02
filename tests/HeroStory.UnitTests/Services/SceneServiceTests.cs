@@ -100,10 +100,10 @@ public class SceneServiceTests
         await dbContext.SaveChangesAsync();
 
         var portraitId = Guid.NewGuid();
-        var consentGrantedAt = DateTime.UtcNow;
+        var consentRecordId = Guid.NewGuid();
         var portraits = new Mock<IUserPortraitService>();
         portraits.Setup(service => service.GetActiveReferenceAsync(session.UserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserPortraitReference(portraitId, consentGrantedAt));
+            .ReturnsAsync(new UserPortraitReference(portraitId, consentRecordId));
         var queue = CreateQueue();
         var service = new SceneService(dbContext, CreateApprovedModeration().Object, CreateTextService(StoryBeat.Climax).Object, queue.Object, portraits.Object);
 
@@ -111,7 +111,13 @@ public class SceneServiceTests
 
         var job = await dbContext.GenerationJobs.SingleAsync();
         Assert.Equal(portraitId, job.PortraitId);
-        Assert.Equal(consentGrantedAt, job.PortraitConsentGrantedAt);
+        Assert.Equal(consentRecordId, job.PortraitConsentRecordId);
+        var audit = await dbContext.PortraitAuditEvents.SingleAsync();
+        Assert.Equal("likeness_use_requested", audit.EventType);
+        Assert.Equal(session.UserId, audit.SubjectUserId);
+        Assert.Equal(session.Id, audit.SessionId);
+        Assert.Equal(job.SceneId, audit.SceneId);
+        Assert.Equal(job.Id, audit.GenerationJobId);
         portraits.Verify(item => item.GetActiveReferenceAsync(session.UserId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -183,16 +189,17 @@ public class SceneServiceTests
         await dbContext.SaveChangesAsync();
 
         var portraitId = Guid.NewGuid();
+        var consentRecordId = Guid.NewGuid();
         var portraits = new Mock<IUserPortraitService>();
         portraits.Setup(service => service.GetActiveReferenceAsync(session.UserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserPortraitReference(portraitId, DateTime.UtcNow));
+            .ReturnsAsync(new UserPortraitReference(portraitId, consentRecordId));
         var service = new SceneService(dbContext, new Mock<IModerationService>().Object, new Mock<IOpenAiTextService>().Object, CreateQueue().Object, portraits.Object);
 
         await service.RequestArtworkAsync(session.UserId, session.Id, scene.Id, true, CancellationToken.None);
 
         var job = await dbContext.GenerationJobs.SingleAsync();
         Assert.Equal(portraitId, job.PortraitId);
-        Assert.NotNull(job.PortraitConsentGrantedAt);
+        Assert.Equal(consentRecordId, job.PortraitConsentRecordId);
     }
 
     [Theory]

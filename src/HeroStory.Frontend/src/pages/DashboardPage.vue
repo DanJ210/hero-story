@@ -9,19 +9,20 @@
       <input v-model="form.genre" placeholder="Genre" />
       <input v-model="form.heroArchetype" placeholder="Hero archetype" />
       <input v-model="form.heroName" placeholder="Hero name" />
-      <label><input v-model="form.likenessEnabled" type="checkbox" :disabled="!portraitUploaded" /> Use my private portrait for automatic beat artwork</label>
+      <label><input v-model="form.likenessEnabled" type="checkbox" :disabled="!portraitConsentValid" /> Use my private portrait for automatic beat artwork</label>
       <button type="submit" :disabled="sessionStore.creating">{{ sessionStore.creating ? "Beginning story..." : "Begin story" }}</button>
     </form>
     <p v-if="creationError" role="alert">{{ creationError }}</p>
     <section class="portrait-panel" aria-labelledby="portrait-title">
       <h2 id="portrait-title">Hero portrait</h2>
       <div v-if="portrait" class="portrait-preview">
-        <img :src="portrait.thumbnailUrl" alt="Your current private hero portrait" />
+        <img v-if="portraitPreviewUrl" :src="portraitPreviewUrl" alt="Your current private hero portrait" />
         <span>Current portrait</span>
       </div>
-      <p>Your portrait stays private. It will not be used in artwork until you explicitly enable likeness generation.</p>
+      <p>Your portrait stays private. It is used only for story artwork when you enable likeness for a story or an individual scene. Generated artwork remains part of the story after portrait removal.</p>
       <input type="file" accept="image/jpeg,image/png,image/webp" @change="selectPortrait" />
-      <label><input v-model="portraitConsent" type="checkbox" /> I own or am authorized to use this image and consent to private storage.</label>
+      <p v-if="portrait && !portrait.consentValid" role="status">This portrait predates versioned likeness consent. Replace it and grant consent before using likeness artwork.</p>
+      <label><input v-model="portraitConsent" type="checkbox" /> I own or am authorized to use this image. I consent to private storage and to OpenAI image generation using it only as a reference for my story artwork.</label>
       <button type="button" :disabled="!portraitFile || !portraitConsent || portraitBusy" @click="uploadPortrait">
         {{ portraitBusy ? "Uploading..." : portraitUploaded ? "Replace portrait" : "Upload portrait" }}
       </button>
@@ -39,7 +40,7 @@
 
 <script setup lang="ts">
 import axios from "axios";
-import { onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
 import { useSessionStore } from "../stores/sessionStore";
@@ -55,36 +56,53 @@ const portraitFile = ref<File | null>(null);
 const portraitConsent = ref(false);
 const portraitUploaded = ref(false);
 const portrait = ref<PortraitDto | null>(null);
+const portraitConsentValid = computed(() => portrait.value?.consentValid === true);
+const portraitPreviewUrl = ref("");
 const portraitBusy = ref(false);
 const portraitError = ref("");
 const selectPortrait = (event: Event) => { portraitFile.value = (event.target as HTMLInputElement).files?.[0] ?? null; };
+const setPortraitPreview = (blob: Blob | null) => {
+  if (portraitPreviewUrl.value) URL.revokeObjectURL(portraitPreviewUrl.value);
+  portraitPreviewUrl.value = blob ? URL.createObjectURL(blob) : "";
+};
 const uploadPortrait = async () => {
   if (!portraitFile.value || !portraitConsent.value) return;
   portraitBusy.value = true;
   portraitError.value = "";
-  try { portrait.value = await authApi.uploadPortrait(portraitFile.value, portraitConsent.value); portraitUploaded.value = true; }
+  try {
+    portrait.value = await authApi.uploadPortrait(portraitFile.value, portraitConsent.value);
+    portraitUploaded.value = true;
+    try { setPortraitPreview(await authApi.getPortraitContent()); }
+    catch { portraitError.value = "The portrait was saved, but its private preview could not be loaded."; }
+  }
   catch (error) { portraitError.value = axios.isAxiosError(error) && typeof error.response?.data?.error === "string" ? error.response.data.error : "The portrait could not be uploaded."; }
   finally { portraitBusy.value = false; }
 };
 const removePortrait = async () => {
   portraitBusy.value = true;
   portraitError.value = "";
-  try { await authApi.deletePortrait(); portraitUploaded.value = false; portrait.value = null; portraitFile.value = null; portraitConsent.value = false; form.likenessEnabled = false; }
+  try { await authApi.deletePortrait(); portraitUploaded.value = false; portrait.value = null; setPortraitPreview(null); portraitFile.value = null; portraitConsent.value = false; form.likenessEnabled = false; }
   catch { portraitError.value = "The portrait could not be removed."; }
   finally { portraitBusy.value = false; }
 };
 const disablePortrait = async () => {
   portraitBusy.value = true;
   portraitError.value = "";
-  try { await authApi.disablePortrait(); portraitUploaded.value = false; portrait.value = null; form.likenessEnabled = false; }
+  try { await authApi.disablePortrait(); portraitUploaded.value = false; portrait.value = null; setPortraitPreview(null); form.likenessEnabled = false; }
   catch { portraitError.value = "Likeness could not be disabled."; }
   finally { portraitBusy.value = false; }
 };
 onMounted(async () => {
   await sessionStore.loadSessions();
-  try { portrait.value = await authApi.getPortrait(); portraitUploaded.value = true; }
+  try {
+    portrait.value = await authApi.getPortrait();
+    portraitUploaded.value = true;
+    try { setPortraitPreview(await authApi.getPortraitContent()); }
+    catch { portraitError.value = "The current portrait preview could not be loaded."; }
+  }
   catch (error) { if (!axios.isAxiosError(error) || error.response?.status !== 404) portraitError.value = "The current portrait could not be loaded."; }
 });
+onBeforeUnmount(() => setPortraitPreview(null));
 const create = async () => {
   creationError.value = "";
   try {

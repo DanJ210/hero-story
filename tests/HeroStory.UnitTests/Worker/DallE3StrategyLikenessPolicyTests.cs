@@ -1,3 +1,4 @@
+using System.Linq;
 using HeroStory.Api.Services;
 using HeroStory.Core.Enums;
 using HeroStory.Infrastructure.Data;
@@ -14,7 +15,7 @@ namespace HeroStory.UnitTests.Worker;
 public class DallE3StrategyLikenessPolicyTests
 {
     [Fact]
-    public async Task GenerateAsync_FailsClosedWhenJobProvenanceHasNoConsentTimestamp()
+    public async Task GenerateAsync_FailsClosedWhenJobProvenanceHasNoConsentRecord()
     {
         var databaseName = Guid.NewGuid().ToString();
         var userId = Guid.NewGuid();
@@ -23,7 +24,7 @@ public class DallE3StrategyLikenessPolicyTests
         var scene = LikenessWorkerFixture.CreateScene(session.Id);
         var portrait = LikenessWorkerFixture.CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-5));
         var job = LikenessWorkerFixture.CreateLikenessJob(scene, portrait, DateTime.UtcNow);
-        job.PortraitConsentGrantedAt = null;
+        job.PortraitConsentRecordId = null;
         dbContext.StorySessions.Add(session);
         dbContext.Scenes.Add(scene);
         dbContext.UserPortraits.Add(portrait);
@@ -39,6 +40,46 @@ public class DallE3StrategyLikenessPolicyTests
 
         Assert.Equal(ArtworkErrorCode.PortraitConsentMissing, exception.Code);
         AssertFailedClosed(job, scene, handler, imageStorage, ArtworkErrorCode.PortraitConsentMissing);
+        Assert.Contains(dbContext.PortraitAuditEvents, audit => audit.EventType == "likeness_use_rejected");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_FailsClosedWhenConsentWasRevoked()
+    {
+        var userId = Guid.NewGuid();
+        await using var dbContext = LikenessWorkerFixture.CreateDbContext(Guid.NewGuid().ToString());
+        var session = LikenessWorkerFixture.CreateSession(userId);
+        var scene = LikenessWorkerFixture.CreateScene(session.Id);
+        var portrait = LikenessWorkerFixture.CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-5));
+        var job = LikenessWorkerFixture.CreateLikenessJob(scene, portrait, DateTime.UtcNow);
+        var consent = portrait.ConsentRecords.Single();
+        dbContext.StorySessions.Add(session);
+        dbContext.Scenes.Add(scene);
+        dbContext.UserPortraits.Add(portrait);
+        dbContext.GenerationJobs.Add(job);
+        dbContext.PortraitAuditEvents.Add(new HeroStory.Core.Entities.PortraitAuditEvent
+        {
+            Id = Guid.NewGuid(),
+            SubjectUserId = userId,
+            ActorType = "user",
+            ActorUserId = userId,
+            EventType = "consent_revoked",
+            PortraitId = portrait.Id,
+            ConsentRecordId = consent.Id,
+            OccurredAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var handler = new RecordingOpenAiHandler();
+        var imageStorage = new Mock<IBlobStorageService>();
+        var strategy = CreateStrategy(dbContext, handler, imageStorage);
+
+        var exception = await Assert.ThrowsAsync<ArtworkPolicyException>(
+            () => strategy.GenerateAsync(job, CancellationToken.None));
+
+        Assert.Equal(ArtworkErrorCode.PortraitConsentMissing, exception.Code);
+        AssertFailedClosed(job, scene, handler, imageStorage, ArtworkErrorCode.PortraitConsentMissing);
+        Assert.Contains(dbContext.PortraitAuditEvents, audit => audit.EventType == "likeness_use_rejected");
     }
 
     [Fact]
@@ -137,6 +178,49 @@ public class DallE3StrategyLikenessPolicyTests
         Assert.False(persistedScene.IsActive);
         Assert.Null(persistedScene.ImageUrl);
         Assert.Null(persistedScene.ImageUrlExpiresAt);
+        Assert.Contains(await verification.PortraitAuditEvents.ToListAsync(), audit => audit.EventType == "likeness_provider_use_started");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DiscardsProviderResultWhenConsentIsRevokedDuringCall()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        var userId = Guid.NewGuid();
+        await using var dbContext = LikenessWorkerFixture.CreateDbContext(databaseName);
+        var session = LikenessWorkerFixture.CreateSession(userId);
+        var scene = LikenessWorkerFixture.CreateScene(session.Id);
+        var portrait = LikenessWorkerFixture.CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-5));
+        var job = LikenessWorkerFixture.CreateLikenessJob(scene, portrait, DateTime.UtcNow);
+        dbContext.StorySessions.Add(session);
+        dbContext.Scenes.Add(scene);
+        dbContext.UserPortraits.Add(portrait);
+        dbContext.GenerationJobs.Add(job);
+        await dbContext.SaveChangesAsync();
+
+        var configuration = LikenessWorkerFixture.CreateConfiguration();
+        var handler = new RecordingOpenAiHandler(async () =>
+        {
+            await using var revocationContext = LikenessWorkerFixture.CreateDbContext(databaseName);
+            var blobService = new Mock<HeroStory.Infrastructure.Storage.AzureBlobService>(configuration) { CallBase = false };
+            var portraitService = new UserPortraitService(revocationContext, blobService.Object, configuration);
+            await portraitService.PurgeAsync(userId, CancellationToken.None);
+        });
+        var imageStorage = new Mock<IBlobStorageService>();
+        var strategy = CreateStrategy(dbContext, handler, imageStorage);
+
+        var exception = await Assert.ThrowsAsync<ArtworkPolicyException>(
+            () => strategy.GenerateAsync(job, CancellationToken.None));
+
+        Assert.Equal(ArtworkErrorCode.PortraitUnavailable, exception.Code);
+        Assert.True(handler.ImageCallMade);
+        Assert.Equal(JobStatus.Poisoned, job.Status);
+        Assert.Null(scene.ImageUrl);
+        imageStorage.Verify(
+            storage => storage.UploadPlaceholderAsync(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        await using var verification = LikenessWorkerFixture.CreateDbContext(databaseName);
+        Assert.Contains(await verification.PortraitAuditEvents.ToListAsync(), audit => audit.EventType == "consent_revoked");
+        Assert.Contains(await verification.PortraitAuditEvents.ToListAsync(), audit => audit.EventType == "likeness_use_rejected");
     }
 
     [Fact]

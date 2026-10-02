@@ -247,7 +247,7 @@ public class SceneService : ISceneService
                 SceneId = scene.Id,
                 SessionId = sessionId,
                 PortraitId = automaticPortrait?.Id,
-                PortraitConsentGrantedAt = automaticPortrait?.ConsentGrantedAt,
+                PortraitConsentRecordId = automaticPortrait?.ConsentRecordId,
                 Prompt = prompt,
                 Status = JobStatus.Queued,
                 CreatedAt = DateTime.UtcNow,
@@ -255,6 +255,11 @@ public class SceneService : ISceneService
                 Scene = scene
             };
             scene.GenerationJobs.Add(job);
+            if (automaticPortrait is not null)
+            {
+                _dbContext.PortraitAuditEvents.Add(CreateLikenessRequestAudit(
+                    session.UserId, sessionId, scene.Id, job.Id, automaticPortrait, DateTime.UtcNow));
+            }
         }
 
         if (supersededScene is not null)
@@ -329,19 +334,46 @@ public class SceneService : ISceneService
             SceneId = scene.Id,
             SessionId = scene.SessionId,
             PortraitId = portrait?.Id,
-            PortraitConsentGrantedAt = portrait?.ConsentGrantedAt,
+            PortraitConsentRecordId = portrait?.ConsentRecordId,
             Prompt = $"Manual artwork request for scene {scene.SequenceNumber}.",
             Status = JobStatus.Queued,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
         _dbContext.GenerationJobs.Add(job);
+        if (portrait is not null)
+        {
+            _dbContext.PortraitAuditEvents.Add(CreateLikenessRequestAudit(
+                userId, scene.SessionId, scene.Id, job.Id, portrait, DateTime.UtcNow));
+        }
         scene.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
         var message = JsonSerializer.Serialize(new { jobId = job.Id, sceneId = scene.Id, sessionId = scene.SessionId });
         await _queueClient.EnqueueAsync(message, cancellationToken);
         return SceneDtoMapper.ToDto(scene);
     }
+
+    private static PortraitAuditEvent CreateLikenessRequestAudit(
+        Guid userId,
+        Guid sessionId,
+        Guid sceneId,
+        Guid jobId,
+        UserPortraitReference portrait,
+        DateTime occurredAt)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            SubjectUserId = userId,
+            ActorType = "user",
+            ActorUserId = userId,
+            EventType = "likeness_use_requested",
+            PortraitId = portrait.Id,
+            ConsentRecordId = portrait.ConsentRecordId,
+            SessionId = sessionId,
+            SceneId = sceneId,
+            GenerationJobId = jobId,
+            OccurredAt = occurredAt
+        };
 
     private async Task<bool> SupersedeAndPersistReplacementAsync(
         Scene supersededScene,
