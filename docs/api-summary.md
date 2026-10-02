@@ -107,7 +107,7 @@ All continuation and revision operations require authentication, session ownersh
 - Rate limiter policies are configured for register, login, sessions, and scenes flows.
 - JSON contract uses camelCase.
 - Exception middleware returns normalized error responses.
-- Required external-service HTTP failures and `TimeoutException`s return `503 Service Unavailable` without exposing provider details. The timeout response is `{"error":"A required external service is temporarily unavailable.","status":503}`.
+- External-service HTTP failures and timeouts that escape an API request return `503 Service Unavailable` without exposing provider details. The response is `{"error":"A required external service is temporarily unavailable.","status":503}`.
 
 ## Related docs
 
