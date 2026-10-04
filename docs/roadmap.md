@@ -63,13 +63,13 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 ### Still deferred
 
 - A revision-history read endpoint and the UI that would consume it.
-- Hero-likeness policy decisions:
-  1. Approve or replace the notice wording and the `hero-likeness-v1` policy-version identifier; confirm that it explains purpose, provider, and output retention and provide any required wording or privacy-notice links.
-  2. Confirm whether `openai-images` is sufficiently narrow and which image API/model operations it covers. A different provider requires a distinct scope and a new user grant.
-  3. Decide whether minors may use hero-likeness personalization. The account model has no age-band information.
-  4. Confirm provider-side portrait retention and deletion expectations and whether the in-flight request boundary matches that policy. Application deletion removes private portrait blobs, but it cannot recall data already sent in a provider request.
-  5. Define retention and access rules for the consent/audit records.
-  6. Revisit export auditing when a real export operation exists. No export endpoint or event is present.
+- Hero-likeness policy decisions remain open; suggested options and starting positions are documented in [likeness-consent-policy-review.md](likeness-consent-policy-review.md):
+  1. Approve or replace the consent notice, confirm any required privacy-notice links, and decide whether the approved terms warrant a new policy version and fresh grants.
+  2. Confirm the exact provider, configured image model, and reference-image operation authorized by `openai-images`; any provider, model, or purpose change needs a distinct scope and fresh consent.
+  3. Decide minor eligibility and an enforceable age policy. Accounts have no age-band information, so eligibility cannot be inferred from account data.
+  4. Verify provider-side portrait handling, retention, and deletion for the exact operation and account configuration; decide whether the in-flight request boundary is acceptable. App deletion cannot recall data already sent to a provider.
+  5. Approve a minimized consent/audit record retention schedule and restrict access to authorized staff.
+  6. Revisit export auditing when an export operation exists; there is no export endpoint or event to audit yet.
 
 ## Near-term (MVP completion)
 
@@ -101,7 +101,7 @@ These must be decided before production launch. They affect moderation, promptin
 - irreversible outcomes, including permanent hero death,
 - whether users can publish or share stories,
 - data retention and export policy,
-- whether hero-likeness personalization is available to minors.
+- whether hero-likeness personalization is available to minors; see the [hero-likeness policy decisions](likeness-consent-policy-review.md).
 
 ## Longer-term (product capabilities)
 
