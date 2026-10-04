@@ -75,8 +75,7 @@ public class ImageGenerationWorker : BackgroundService
         }
         catch (DbUpdateConcurrencyException)
         {
-            await dbContext.Entry(job).ReloadAsync(cancellationToken);
-            if (job.Status is JobStatus.Completed or JobStatus.Poisoned)
+            if (job.Status is JobStatus.Completed or JobStatus.Poisoned or JobStatus.Processing)
             {
                 await _queueClient.DeleteMessageAsync(message.MessageId, message.PopReceipt, cancellationToken);
                 return;
