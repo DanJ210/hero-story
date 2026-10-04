@@ -33,6 +33,8 @@ public class DallE3Strategy : IImageGeneratorStrategy
     {
         var ownerUserId = Guid.Empty;
         Scene? scene = null;
+        PortraitAuditEvent? providerUseStartedAudit = null;
+        string? uploadedBlobName = null;
         try
         {
             scene = await _dbContext.Scenes
@@ -51,7 +53,7 @@ public class DallE3Strategy : IImageGeneratorStrategy
                 await using var normalizedPortrait = await NormalizePortraitAsync(portraitStream, cancellationToken);
 
                 (portrait, consentRecord) = await LoadAndValidatePortraitAsync(job, scene.Session.UserId, maxReferenceAge, cancellationToken);
-                _dbContext.PortraitAuditEvents.Add(new PortraitAuditEvent
+                providerUseStartedAudit = new PortraitAuditEvent
                 {
                     Id = Guid.NewGuid(),
                     SubjectUserId = scene.Session.UserId,
@@ -63,7 +65,9 @@ public class DallE3Strategy : IImageGeneratorStrategy
                     SceneId = scene.Id,
                     GenerationJobId = job.Id,
                     OccurredAt = DateTime.UtcNow
-                });
+                };
+                _dbContext.PortraitAuditEvents.Add(providerUseStartedAudit);
+                _dbContext.Entry(job).Property(candidate => candidate.Status).IsModified = true;
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 imageBytes = await _openAiClient.GenerateImageWithReferenceAsync(imagePrompt, normalizedPortrait, "image/jpeg", cancellationToken);
                 await LoadAndValidatePortraitAsync(job, scene.Session.UserId, maxReferenceAge, cancellationToken);
@@ -81,8 +85,9 @@ public class DallE3Strategy : IImageGeneratorStrategy
             }
 
             await using var stream = new MemoryStream(imageBytes);
-            var blobName = $"scenes/{job.SceneId}/generated.png";
+            var blobName = $"scenes/{job.SceneId}/generated/{job.Id}.png";
             await _blobStorageService.UploadPlaceholderAsync(blobName, stream, "image/png", cancellationToken);
+            uploadedBlobName = blobName;
             var signedUrl = _blobStorageService.GenerateImageAccessUrl(blobName);
 
             scene.ImageUrl = signedUrl;
@@ -95,6 +100,12 @@ public class DallE3Strategy : IImageGeneratorStrategy
         }
         catch (Exception ex)
         {
+            if (providerUseStartedAudit is not null
+                && _dbContext.Entry(providerUseStartedAudit).State == EntityState.Added)
+            {
+                _dbContext.Entry(providerUseStartedAudit).State = EntityState.Detached;
+            }
+
             await _dbContext.Entry(job).ReloadAsync(cancellationToken);
             if (ex is DbUpdateConcurrencyException && scene is not null)
             {
@@ -141,6 +152,11 @@ public class DallE3Strategy : IImageGeneratorStrategy
                 }
 
                 await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            if (uploadedBlobName is not null)
+            {
+                await _blobStorageService.DeleteImageAsync(uploadedBlobName, cancellationToken);
             }
 
             throw;
