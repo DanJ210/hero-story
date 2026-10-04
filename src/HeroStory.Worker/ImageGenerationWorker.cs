@@ -69,7 +69,20 @@ public class ImageGenerationWorker : BackgroundService
         job.Status = JobStatus.Processing;
         job.AttemptCount++;
         job.UpdatedAt = DateTime.UtcNow;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (job.Status is JobStatus.Completed or JobStatus.Poisoned or JobStatus.Processing)
+            {
+                await _queueClient.DeleteMessageAsync(message.MessageId, message.PopReceipt, cancellationToken);
+                return;
+            }
+
+            throw;
+        }
 
         try
         {
@@ -81,12 +94,34 @@ public class ImageGenerationWorker : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Image generation failed for job {JobId}", job.Id);
+            await dbContext.Entry(job).ReloadAsync(cancellationToken);
+            if (job.Status is JobStatus.Completed or JobStatus.Poisoned)
+            {
+                await _queueClient.DeleteMessageAsync(message.MessageId, message.PopReceipt, cancellationToken);
+                return;
+            }
+
             job.Status = message.DequeueCount >= _options.MaxDequeueCount ? JobStatus.Poisoned : JobStatus.Failed;
             job.ErrorDetail = ex is ArtworkPolicyException policyException
                 ? $"{policyException.Code}: {policyException.Message}"
                 : ex.Message;
             job.UpdatedAt = DateTime.UtcNow;
-            await dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                await dbContext.Entry(job).ReloadAsync(cancellationToken);
+                if (job.Status is JobStatus.Completed or JobStatus.Poisoned)
+                {
+                    await _queueClient.DeleteMessageAsync(message.MessageId, message.PopReceipt, cancellationToken);
+                    return;
+                }
+
+                throw;
+            }
+
             if (message.DequeueCount >= _options.MaxDequeueCount)
             {
                 await _queueClient.MoveToPoisonAsync(message.MessageText, cancellationToken);

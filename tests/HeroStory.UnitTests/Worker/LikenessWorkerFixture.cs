@@ -116,16 +116,19 @@ internal static class LikenessWorkerFixture
         };
 
     public static UserPortrait CreatePortrait(Guid userId, DateTime consentGrantedAt)
-        => new()
+    {
+        var portrait = new UserPortrait
         {
             Id = Guid.NewGuid(),
             UserId = userId,
             BlobName = $"users/{userId}/portraits/{Guid.NewGuid()}",
             ContentType = "image/jpeg",
             ContentLength = 2048,
-            ConsentGrantedAt = consentGrantedAt,
             CreatedAt = consentGrantedAt
         };
+        portrait.ConsentRecords.Add(CreateConsentRecord(portrait, consentGrantedAt));
+        return portrait;
+    }
 
     public static GenerationJob CreateLikenessJob(Scene scene, UserPortrait? portrait, DateTime createdAt, JobStatus status = JobStatus.Processing)
         => new()
@@ -134,10 +137,22 @@ internal static class LikenessWorkerFixture
             SceneId = scene.Id,
             SessionId = scene.SessionId,
             PortraitId = portrait?.Id,
-            PortraitConsentGrantedAt = portrait?.ConsentGrantedAt,
+            PortraitConsentRecordId = portrait?.ConsentRecords.SingleOrDefault()?.Id,
             Prompt = "Illustrate the opening beat.",
             Status = status,
             CreatedAt = createdAt,
             UpdatedAt = createdAt
+        };
+
+    public static PortraitConsentRecord CreateConsentRecord(UserPortrait portrait, DateTime grantedAt)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = portrait.UserId,
+            PortraitId = portrait.Id,
+            Purpose = PortraitConsentPolicy.Purpose,
+            PolicyVersion = PortraitConsentPolicy.PolicyVersion,
+            ProviderScope = PortraitConsentPolicy.ProviderScope,
+            GrantedAt = grantedAt
         };
 }

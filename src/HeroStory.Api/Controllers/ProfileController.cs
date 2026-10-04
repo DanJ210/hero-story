@@ -24,13 +24,26 @@ public class ProfileController : ControllerBase
         return portrait is null ? NotFound() : Ok(portrait);
     }
 
+    [HttpGet("content")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> GetContent(CancellationToken cancellationToken)
+    {
+        var portrait = await _portraitService.GetActiveContentAsync(GetUserId(), cancellationToken);
+        return portrait is null ? NotFound() : File(portrait.Content, portrait.ContentType);
+    }
+
     [HttpPost]
     [RequestSizeLimit(10 * 1024 * 1024)]
-    public async Task<ActionResult<PortraitDto>> Upload(IFormFile file, [FromForm] bool consentGranted, CancellationToken cancellationToken)
+    public async Task<ActionResult<PortraitDto>> Upload(
+        IFormFile file,
+        [FromForm] bool consentGranted,
+        [FromForm] string consentPolicyVersion,
+        CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         await using var content = file.OpenReadStream();
-        var portrait = await _portraitService.UploadAsync(userId, content, file.ContentType, file.Length, consentGranted, cancellationToken);
+        var portrait = await _portraitService.UploadAsync(
+            userId, content, file.ContentType, file.Length, consentGranted, consentPolicyVersion, cancellationToken);
         return CreatedAtAction(nameof(Upload), portrait);
     }
 

@@ -1,8 +1,12 @@
+using System.Linq;
 using HeroStory.Api.Services;
 using HeroStory.Core.Enums;
 using HeroStory.Infrastructure.Data;
+using HeroStory.Infrastructure.Storage;
 using HeroStory.Worker;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Moq;
 
 namespace HeroStory.UnitTests.Worker;
@@ -14,7 +18,7 @@ namespace HeroStory.UnitTests.Worker;
 public class DallE3StrategyLikenessPolicyTests
 {
     [Fact]
-    public async Task GenerateAsync_FailsClosedWhenJobProvenanceHasNoConsentTimestamp()
+    public async Task GenerateAsync_FailsClosedWhenJobProvenanceHasNoConsentRecord()
     {
         var databaseName = Guid.NewGuid().ToString();
         var userId = Guid.NewGuid();
@@ -23,7 +27,7 @@ public class DallE3StrategyLikenessPolicyTests
         var scene = LikenessWorkerFixture.CreateScene(session.Id);
         var portrait = LikenessWorkerFixture.CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-5));
         var job = LikenessWorkerFixture.CreateLikenessJob(scene, portrait, DateTime.UtcNow);
-        job.PortraitConsentGrantedAt = null;
+        job.PortraitConsentRecordId = null;
         dbContext.StorySessions.Add(session);
         dbContext.Scenes.Add(scene);
         dbContext.UserPortraits.Add(portrait);
@@ -39,6 +43,46 @@ public class DallE3StrategyLikenessPolicyTests
 
         Assert.Equal(ArtworkErrorCode.PortraitConsentMissing, exception.Code);
         AssertFailedClosed(job, scene, handler, imageStorage, ArtworkErrorCode.PortraitConsentMissing);
+        Assert.Contains(dbContext.PortraitAuditEvents, audit => audit.EventType == "likeness_use_rejected");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_FailsClosedWhenConsentWasRevoked()
+    {
+        var userId = Guid.NewGuid();
+        await using var dbContext = LikenessWorkerFixture.CreateDbContext(Guid.NewGuid().ToString());
+        var session = LikenessWorkerFixture.CreateSession(userId);
+        var scene = LikenessWorkerFixture.CreateScene(session.Id);
+        var portrait = LikenessWorkerFixture.CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-5));
+        var job = LikenessWorkerFixture.CreateLikenessJob(scene, portrait, DateTime.UtcNow);
+        var consent = portrait.ConsentRecords.Single();
+        dbContext.StorySessions.Add(session);
+        dbContext.Scenes.Add(scene);
+        dbContext.UserPortraits.Add(portrait);
+        dbContext.GenerationJobs.Add(job);
+        dbContext.PortraitAuditEvents.Add(new HeroStory.Core.Entities.PortraitAuditEvent
+        {
+            Id = Guid.NewGuid(),
+            SubjectUserId = userId,
+            ActorType = "user",
+            ActorUserId = userId,
+            EventType = "consent_revoked",
+            PortraitId = portrait.Id,
+            ConsentRecordId = consent.Id,
+            OccurredAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var handler = new RecordingOpenAiHandler();
+        var imageStorage = new Mock<IBlobStorageService>();
+        var strategy = CreateStrategy(dbContext, handler, imageStorage);
+
+        var exception = await Assert.ThrowsAsync<ArtworkPolicyException>(
+            () => strategy.GenerateAsync(job, CancellationToken.None));
+
+        Assert.Equal(ArtworkErrorCode.PortraitConsentMissing, exception.Code);
+        AssertFailedClosed(job, scene, handler, imageStorage, ArtworkErrorCode.PortraitConsentMissing);
+        Assert.Contains(dbContext.PortraitAuditEvents, audit => audit.EventType == "likeness_use_rejected");
     }
 
     [Fact]
@@ -137,6 +181,147 @@ public class DallE3StrategyLikenessPolicyTests
         Assert.False(persistedScene.IsActive);
         Assert.Null(persistedScene.ImageUrl);
         Assert.Null(persistedScene.ImageUrlExpiresAt);
+        Assert.Contains(await verification.PortraitAuditEvents.ToListAsync(), audit => audit.EventType == "likeness_provider_use_started");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DiscardsProviderResultWhenConsentIsRevokedDuringCall()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        var userId = Guid.NewGuid();
+        await using var dbContext = LikenessWorkerFixture.CreateDbContext(databaseName);
+        var session = LikenessWorkerFixture.CreateSession(userId);
+        var scene = LikenessWorkerFixture.CreateScene(session.Id);
+        var portrait = LikenessWorkerFixture.CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-5));
+        var job = LikenessWorkerFixture.CreateLikenessJob(scene, portrait, DateTime.UtcNow);
+        dbContext.StorySessions.Add(session);
+        dbContext.Scenes.Add(scene);
+        dbContext.UserPortraits.Add(portrait);
+        dbContext.GenerationJobs.Add(job);
+        await dbContext.SaveChangesAsync();
+
+        var configuration = LikenessWorkerFixture.CreateConfiguration();
+        var handler = new RecordingOpenAiHandler(async () =>
+        {
+            await using var revocationContext = LikenessWorkerFixture.CreateDbContext(databaseName);
+            var blobService = new Mock<HeroStory.Infrastructure.Storage.AzureBlobService>(configuration) { CallBase = false };
+            var portraitService = new UserPortraitService(revocationContext, blobService.Object, configuration);
+            await portraitService.PurgeAsync(userId, CancellationToken.None);
+        });
+        var imageStorage = new Mock<IBlobStorageService>();
+        var strategy = CreateStrategy(dbContext, handler, imageStorage);
+
+        var exception = await Assert.ThrowsAsync<ArtworkPolicyException>(
+            () => strategy.GenerateAsync(job, CancellationToken.None));
+
+        Assert.Equal(ArtworkErrorCode.PortraitUnavailable, exception.Code);
+        Assert.True(handler.ImageCallMade);
+        Assert.Equal(JobStatus.Poisoned, job.Status);
+        Assert.Null(scene.ImageUrl);
+        imageStorage.Verify(
+            storage => storage.UploadPlaceholderAsync(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        await using var verification = LikenessWorkerFixture.CreateDbContext(databaseName);
+        Assert.Contains(await verification.PortraitAuditEvents.ToListAsync(), audit => audit.EventType == "consent_revoked");
+        Assert.Contains(await verification.PortraitAuditEvents.ToListAsync(), audit => audit.EventType == "likeness_use_rejected");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DiscardsProviderResultWhenConsentIsRevokedBeforeCompletion()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        var userId = Guid.NewGuid();
+        await using var dbContext = LikenessWorkerFixture.CreateDbContext(databaseName);
+        var session = LikenessWorkerFixture.CreateSession(userId);
+        var scene = LikenessWorkerFixture.CreateScene(session.Id);
+        var portrait = LikenessWorkerFixture.CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-5));
+        var job = LikenessWorkerFixture.CreateLikenessJob(scene, portrait, DateTime.UtcNow);
+        dbContext.StorySessions.Add(session);
+        dbContext.Scenes.Add(scene);
+        dbContext.UserPortraits.Add(portrait);
+        dbContext.GenerationJobs.Add(job);
+        await dbContext.SaveChangesAsync();
+
+        var configuration = LikenessWorkerFixture.CreateConfiguration();
+        var handler = new RecordingOpenAiHandler();
+        var imageStorage = new Mock<IBlobStorageService>();
+        imageStorage
+            .Setup(storage => storage.UploadPlaceholderAsync(
+                It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns((string blobName, Stream content, string contentType, CancellationToken cancellationToken) =>
+                RevokeConsentAndReturnUrlAsync());
+
+        async Task<string> RevokeConsentAndReturnUrlAsync()
+        {
+            await using var revocationContext = LikenessWorkerFixture.CreateDbContext(databaseName);
+            var blobService = new Mock<HeroStory.Infrastructure.Storage.AzureBlobService>(configuration) { CallBase = false };
+            var portraitService = new UserPortraitService(revocationContext, blobService.Object, configuration);
+            await portraitService.PurgeAsync(userId, CancellationToken.None);
+            return "https://blob.test/generated.png";
+        }
+
+        var strategy = CreateStrategy(dbContext, handler, imageStorage);
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(
+            () => strategy.GenerateAsync(job, CancellationToken.None));
+
+        Assert.True(handler.ImageCallMade);
+        Assert.Equal(JobStatus.Poisoned, job.Status);
+        Assert.Null(scene.ImageUrl);
+        imageStorage.Verify(
+            storage => storage.UploadPlaceholderAsync(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        imageStorage.Verify(
+            storage => storage.DeleteImageAsync($"scenes/{scene.Id}/generated/{job.Id}.png", It.IsAny<CancellationToken>()),
+            Times.Once);
+        await using var verification = LikenessWorkerFixture.CreateDbContext(databaseName);
+        var persistedJob = await verification.GenerationJobs.SingleAsync(candidate => candidate.Id == job.Id);
+        var persistedScene = await verification.Scenes.SingleAsync(candidate => candidate.Id == scene.Id);
+        Assert.Equal(JobStatus.Poisoned, persistedJob.Status);
+        Assert.Null(persistedScene.ImageUrl);
+        Assert.Contains(await verification.PortraitAuditEvents.ToListAsync(), audit => audit.EventType == "likeness_use_rejected");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DoesNotDispatchWhenRevocationWinsProviderUseClaim()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        var userId = Guid.NewGuid();
+        var session = LikenessWorkerFixture.CreateSession(userId);
+        var scene = LikenessWorkerFixture.CreateScene(session.Id);
+        var portrait = LikenessWorkerFixture.CreatePortrait(userId, DateTime.UtcNow.AddMinutes(-5));
+        var job = LikenessWorkerFixture.CreateLikenessJob(scene, portrait, DateTime.UtcNow);
+        await using (var seedContext = LikenessWorkerFixture.CreateDbContext(databaseName))
+        {
+            seedContext.StorySessions.Add(session);
+            seedContext.Scenes.Add(scene);
+            seedContext.UserPortraits.Add(portrait);
+            seedContext.GenerationJobs.Add(job);
+            await seedContext.SaveChangesAsync();
+        }
+
+        var configuration = LikenessWorkerFixture.CreateConfiguration();
+        var interceptor = new RevokeBeforeProviderUseClaimInterceptor(databaseName, userId, configuration);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(databaseName)
+            .AddInterceptors(interceptor)
+            .Options;
+        await using var dbContext = new AppDbContext(options);
+        var workerJob = await dbContext.GenerationJobs.SingleAsync(candidate => candidate.Id == job.Id);
+        var handler = new RecordingOpenAiHandler();
+        var imageStorage = new Mock<IBlobStorageService>();
+        var strategy = CreateStrategy(dbContext, handler, imageStorage);
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(
+            () => strategy.GenerateAsync(workerJob, CancellationToken.None));
+
+        Assert.Equal(JobStatus.Poisoned, workerJob.Status);
+        Assert.False(handler.ImageCallMade);
+        imageStorage.Verify(
+            storage => storage.UploadPlaceholderAsync(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        await using var verification = LikenessWorkerFixture.CreateDbContext(databaseName);
+        Assert.Contains(await verification.PortraitAuditEvents.ToListAsync(), audit => audit.EventType == "likeness_use_rejected");
     }
 
     [Fact]
@@ -255,5 +440,32 @@ public class DallE3StrategyLikenessPolicyTests
         imageStorage.Verify(
             storage => storage.UploadPlaceholderAsync(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    private sealed class RevokeBeforeProviderUseClaimInterceptor(
+        string databaseName,
+        Guid userId,
+        IConfiguration configuration) : SaveChangesInterceptor
+    {
+        private bool _revoked;
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (!_revoked
+                && eventData.Context?.ChangeTracker.Entries<HeroStory.Core.Entities.PortraitAuditEvent>()
+                    .Any(entry => entry.State == EntityState.Added && entry.Entity.EventType == "likeness_provider_use_started") == true)
+            {
+                _revoked = true;
+                await using var revocationContext = LikenessWorkerFixture.CreateDbContext(databaseName);
+                var blobService = new Mock<AzureBlobService>(configuration) { CallBase = false };
+                var portraitService = new UserPortraitService(revocationContext, blobService.Object, configuration);
+                await portraitService.PurgeAsync(userId, cancellationToken);
+            }
+
+            return await base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
     }
 }

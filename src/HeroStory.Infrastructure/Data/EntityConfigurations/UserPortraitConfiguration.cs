@@ -12,7 +12,6 @@ public class UserPortraitConfiguration : IEntityTypeConfiguration<UserPortrait>
         builder.Property(portrait => portrait.BlobName).HasMaxLength(300).IsRequired();
         builder.Property(portrait => portrait.ContentType).HasMaxLength(100).IsRequired();
         builder.Property(portrait => portrait.ContentLength).IsRequired();
-        builder.Property(portrait => portrait.ConsentGrantedAt).IsRequired();
         builder.Property(portrait => portrait.CreatedAt).IsRequired();
         builder.HasIndex(portrait => new { portrait.UserId, portrait.CreatedAt });
         builder.HasOne(portrait => portrait.User).WithMany(user => user.Portraits).HasForeignKey(portrait => portrait.UserId);

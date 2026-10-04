@@ -19,6 +19,7 @@ It is the single home for delivery status. Other docs describe behavior in prese
 - Active-path scene and workspace reads exclude superseded turns; continuation records parent lineage.
 - The workspace exposes an inline latest-turn revision editor, refreshes the active timeline after replacement, and restores focus to the replacement turn.
 - Development authentication, SQL migrations, OpenAI moderation, and safe external-service errors support local vertical-slice testing.
+- Versioned likeness consent, portrait-lifecycle auditing, and worker-side consent revalidation are implemented with a focused policy-review follow-up.
 
 ### Current milestone
 
@@ -56,11 +57,19 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
    - [x] Slice 2: add portrait disable/replace flows and enforce active consented portrait provenance so stale queued likeness jobs fail closed.
    - [x] Slice 3: complete deletion semantics so portrait and account deletion remove superseded portrait blobs, settle outstanding likeness jobs, and apply a stated retention policy for artwork already generated from the deleted source.
    - [x] Slice 4: add end-to-end likeness policy tests covering missing consent, reference expiry, superseded scenes, and deletion during an in-flight job.
+   - [x] Phase 4: replace timestamp-only consent provenance with immutable purpose/version/provider-scoped grants and append-only lifecycle audit events.
+   - [x] Phase 4: enforce consent validity and revocation at the worker provider boundary, and audit requested, started, rejected, and settled likeness work.
 
 ### Still deferred
 
 - A revision-history read endpoint and the UI that would consume it.
-- A dedicated consent entity covering purpose, policy version, and provider scope, plus an audit trail for portrait upload, use, replacement, disablement, export, and deletion.
+- Hero-likeness policy decisions remain open; suggested options and starting positions are documented in [likeness-consent-policy-review.md](likeness-consent-policy-review.md):
+  1. Approve or replace the consent notice, confirm any required privacy-notice links, and decide whether the approved terms warrant a new policy version and fresh grants.
+  2. Confirm the exact provider, configured image model, and reference-image operation authorized by `openai-images`; any provider, model, or purpose change needs a distinct scope and fresh consent.
+  3. Decide minor eligibility and an enforceable age policy. Accounts have no age-band information, so eligibility cannot be inferred from account data.
+  4. Verify provider-side portrait handling, retention, and deletion for the exact operation and account configuration; decide whether the in-flight request boundary is acceptable. App deletion cannot recall data already sent to a provider.
+  5. Approve a minimized consent/audit record retention schedule and restrict access to authorized staff.
+  6. Revisit export auditing when an export operation exists; there is no export endpoint or event to audit yet.
 
 ## Near-term (MVP completion)
 
@@ -92,7 +101,7 @@ These must be decided before production launch. They affect moderation, promptin
 - irreversible outcomes, including permanent hero death,
 - whether users can publish or share stories,
 - data retention and export policy,
-- whether hero-likeness personalization is available to minors.
+- whether hero-likeness personalization is available to minors; see the [hero-likeness policy decisions](likeness-consent-policy-review.md).
 
 ## Longer-term (product capabilities)
 
