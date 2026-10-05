@@ -75,6 +75,22 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 
 - [x] Add vertical-slice tests proving automatic artwork retry and completed-job idempotency.
 
+### Proposed likeness-quality workflow and documentation alignment
+
+The consent-driven likeness path above does not establish visual-quality acceptance. This follow-up is proposed work, not shipped preview, approval, or multi-reference behavior. Start with the existing OpenAI image strategy; do not change providers or introduce per-user training before a bounded quality evaluation.
+
+- [ ] Define the product contract in [story-experience.md](story-experience.md#hero-likeness-personalization): a consented source portrait, a superhero preview the user can approve or regenerate, a versioned costume/style specification, and scene generation anchored to the original portrait plus the approved hero reference where supported. Keep likeness optional and separate photorealism from identity consistency. Approval must not replace consent.
+- [ ] Agree on a bounded evaluation: five consenting adult volunteers and six scene types per person (close-up, profile, full-body, action, low light, and multiple people). Compare the existing portrait-only path with the proposed portrait-plus-approved-hero path. Record user-rated likeness, costume consistency, scene accuracy, usable-image rate, latency, and cost per accepted image including retries. Proposed gates, subject to agreement: at least 80% accepted without regeneration and mean user-rated likeness of at least 4/5. These are targets, not measured results.
+- [ ] Deliver the preview-and-approval slice before adding approved references to story artwork. Define preview visibility, replacement, disablement, deletion, retention, and consent scope before implementation. Specify which changes invalidate an approval and how queued or in-flight jobs react.
+- [ ] Deliver persistent visual identity and multi-reference scene generation as a subsequent slice. Keep the original portrait as the identity anchor rather than chaining only generated scenes. Verify the exact model's reference-image support and fidelity controls without assuming every OpenAI image model accepts the same options.
+- [ ] Update [architecture.md](architecture.md#likeness-boundary) after each slice to describe the verified request path and trust boundaries. Keep source portraits, identity-derived references, and any future face embeddings or adapters ownership-scoped; do not place image content or unrestricted references in queues or logs.
+- [ ] Update [api-summary.md](api-summary.md) with verified preview, approval, and regeneration routes and error contracts; update [data-model.md](data-model.md) with the corresponding versioned records, provenance, relationships, and migrations. Do not document proposed fields or routes as existing behavior.
+- [ ] Update [development-guide.md](development-guide.md) with validated model capabilities, configuration, and reproducible evaluation steps. Keep the README and [application-overview.md](application-overview.md) as navigation rather than duplicate workflow specifications.
+- [ ] Validate the frontend-to-API-to-persistence-to-queue-to-worker flow, including consent revocation, replacement, stale approval, and superseded-scene cases. Record quality results separately from policy-test success before marking the quality milestone complete.
+- [ ] Only if the hosted path misses agreed quality gates, benchmark a commercially licensed identity-conditioned alternative behind the strategy boundary. Review base-model, adapter, and face-encoder licenses and provider retention; consider per-user LoRA only if measured gains justify training and sensitive-artifact lifecycle costs.
+
+Keep [handoff-plan.md](handoff-plan.md) frozen during this follow-up unless the agreed product contract changes; then amend the baseline and bump its version. Delivery status and evaluation outcomes remain on this roadmap, while each other page owns only its assigned facts.
+
 ## Mid-term (production readiness)
 
 1. Add robust observability:

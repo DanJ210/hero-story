@@ -34,7 +34,7 @@ See [docs/architecture.md](docs/architecture.md) for runtime interactions and bo
 - **Backend**: .NET 10, ASP.NET Core, EF Core, ASP.NET Identity, JWT bearer auth
 - **Frontend**: Vue 3, Vite, TypeScript, Pinia
 - **Data and messaging**: SQL Server, Azure Queue Storage, Azure Blob Storage
-- **AI services**: OpenAI text generation/moderation and worker strategy support for DALL·E-style image generation
+- **AI services**: OpenAI text generation/moderation and GPT Image generation with reference-portrait editing
 - **Testing**: xUnit unit and integration test projects
 
 See [docs/development-guide.md](docs/development-guide.md) for toolchain expectations.
@@ -86,7 +86,7 @@ Additional setup and troubleshooting notes are in [docs/development-guide.md](do
 
 1. Worker polls the configured Azure Queue on interval.
 2. Worker marks matching `GenerationJob` row as processing and increments attempts.
-3. Selected image strategy (`placeholder` or `dalle3`) generates an image and writes blob content.
+3. The selected image strategy generates an image and writes blob content. See [worker configuration](docs/development-guide.md#project-conventions) for strategy selection.
 4. Worker updates job status and deletes queue message, or moves exhausted failures to poison queue.
 
 See [docs/api-summary.md](docs/api-summary.md) and [docs/architecture.md](docs/architecture.md) for endpoint and pipeline detail.

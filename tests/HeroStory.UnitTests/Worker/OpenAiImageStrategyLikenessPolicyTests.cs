@@ -15,8 +15,17 @@ namespace HeroStory.UnitTests.Worker;
 /// Exercises the real worker generation path so likeness policy violations are proven to fail closed
 /// end to end, not just inside <see cref="PortraitLikenessPolicy"/>.
 /// </summary>
-public class DallE3StrategyLikenessPolicyTests
+public class OpenAiImageStrategyLikenessPolicyTests
 {
+    [Fact]
+    public async Task Name_IdentifiesTheOpenAiProviderStrategy()
+    {
+        await using var dbContext = LikenessWorkerFixture.CreateDbContext(Guid.NewGuid().ToString());
+        var strategy = CreateStrategy(dbContext, new RecordingOpenAiHandler(), new Mock<IBlobStorageService>());
+
+        Assert.Equal("openai", strategy.Name);
+    }
+
     [Fact]
     public async Task GenerateAsync_FailsClosedWhenJobProvenanceHasNoConsentRecord()
     {
@@ -413,7 +422,7 @@ public class DallE3StrategyLikenessPolicyTests
         Assert.Equal("https://blob.test/scenes/generated.png", scene.ImageUrl);
     }
 
-    private static DallE3Strategy CreateStrategy(
+    private static OpenAiImageStrategy CreateStrategy(
         AppDbContext dbContext,
         RecordingOpenAiHandler handler,
         Mock<IBlobStorageService> imageStorage,
@@ -422,7 +431,7 @@ public class DallE3StrategyLikenessPolicyTests
         var configuration = LikenessWorkerFixture.CreateConfiguration(referenceMaxAgeMinutes);
         var openAiClient = LikenessWorkerFixture.CreateOpenAiClient(handler, configuration);
         var portraitBlobs = LikenessWorkerFixture.CreatePortraitBlobService(configuration);
-        return new DallE3Strategy(imageStorage.Object, dbContext, openAiClient, portraitBlobs.Object, configuration);
+        return new OpenAiImageStrategy(imageStorage.Object, dbContext, openAiClient, portraitBlobs.Object, configuration);
     }
 
     private static void AssertFailedClosed(

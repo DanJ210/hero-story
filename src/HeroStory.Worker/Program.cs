@@ -22,7 +22,7 @@ builder.Services.AddSingleton<AzureBlobService>();
 builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 builder.Services.AddHttpClient<OpenAiClient>();
 builder.Services.AddScoped<global::HeroStory.Worker.IImageGeneratorStrategy, global::HeroStory.Worker.PlaceholderImageStrategy>();
-builder.Services.AddScoped<global::HeroStory.Worker.IImageGeneratorStrategy, global::HeroStory.Worker.DallE3Strategy>();
+builder.Services.AddScoped<global::HeroStory.Worker.IImageGeneratorStrategy, global::HeroStory.Worker.OpenAiImageStrategy>();
 builder.Services.AddHostedService<global::HeroStory.Worker.ImageGenerationWorker>();
 
 var host = builder.Build();
