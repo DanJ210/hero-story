@@ -63,17 +63,34 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 ### Still deferred
 
 - A revision-history read endpoint and the UI that would consume it.
-- Hero-likeness policy decisions remain open; suggested options and starting positions are documented in [likeness-consent-policy-review.md](likeness-consent-policy-review.md):
-  1. Approve or replace the consent notice, confirm any required privacy-notice links, and decide whether the approved terms warrant a new policy version and fresh grants.
-  2. Confirm the exact provider, configured image model, and reference-image operation authorized by `openai-images`; any provider, model, or purpose change needs a distinct scope and fresh consent.
-  3. Decide minor eligibility and an enforceable age policy. Accounts have no age-band information, so eligibility cannot be inferred from account data.
-  4. Verify provider-side portrait handling, retention, and deletion for the exact operation and account configuration; decide whether the in-flight request boundary is acceptable. App deletion cannot recall data already sent to a provider.
-  5. Approve a minimized consent/audit record retention schedule and restrict access to authorized staff.
+- Hero-likeness privacy and release gates remain open; the product-level preview decisions and draft wording are documented in [story-experience.md](story-experience.md#hero-preview-and-approval) and [likeness-consent-policy-review.md](likeness-consent-policy-review.md):
+  1. Obtain privacy-owner approval for the separate preview-consent notice and links, then determine its policy version and fresh-grant requirements.
+  2. Verify the effective provider, model, edit operation, and account/project controls. Keep preview consent scoped to the verified operation; any provider, model, or purpose change needs a distinct scope and fresh consent.
+  3. Keep general availability disabled until an enforceable age policy exists. Block adult-volunteer evaluation until privacy-approved age verification and consent procedures exist; account data does not establish age.
+  4. Confirm that provider-side handling, retention, deletion, and the in-flight request boundary are acceptable for the exact account and operation. App deletion cannot recall data already sent to a provider.
+  5. Verify the deployment's maximum backup-expiry window for disclosure, and approve a minimized consent/audit-record retention schedule with restricted access.
   6. Revisit export auditing when an export operation exists; there is no export endpoint or event to audit yet.
 
 ## Near-term (MVP completion)
 
 - [x] Add vertical-slice tests proving automatic artwork retry and completed-job idempotency.
+
+### Proposed likeness-quality workflow and documentation alignment
+
+The consent-driven likeness path above does not establish visual-quality acceptance. This follow-up is proposed work, not shipped preview, approval, or multi-reference behavior. Start with the configured OpenAI image strategy; do not change providers or introduce per-user training before a bounded quality evaluation. Product decisions for preview consent, visibility, regeneration limits, approval binding, invalidation, appearance catalog, derived-preview deletion, and temporary adult-evaluation eligibility are recorded in [story-experience.md](story-experience.md#hero-preview-and-approval). Those decisions do not establish implementation status.
+
+- [ ] Complete preview readiness: privacy-owner approval of separate preview-consent wording and policy version; verification of the effective model/account operation and provider data controls; an enforceable adult-evaluation eligibility workflow; and a verified maximum backup-expiry window for disclosure. The repository does not establish the deployed backup-expiry period or the evaluation/deployment account's data-retention setting.
+- [ ] Implement the private preview-and-approval slice under the decisions in [story-experience.md](story-experience.md#hero-preview-and-approval). Its fixed v1 catalog and defaults are agreed; preview and story-artwork consent remain distinct.
+- [ ] Run a bounded evaluation using five consenting adult volunteers and six scene types per person (close-up, profile, full-body, action, low light, and multiple people) as proposed targets. For each of 30 volunteer/scene cases, compare portrait-only with portrait-plus-approved-hero output using the same fixed prompt; hide arm/order from raters where practical. This yields 60 first outputs and at most 180 outputs with a maximum of two retries per case/arm. Participants rate likeness, costume consistency, and scene accuracy separately on 1–5 scales and mark each image usable/not usable; record latency and cost from system/provider data. Define first-output usable as accepted without regeneration, report results overall and by scene type as directional for this small sample, and report cost per accepted image including retries. The proposed targets of at least 80% accepted without regeneration and mean likeness of at least 4/5 are not requirements or measured results. Keep adult recruitment blocked until the age-verification and consent workflow is approved.
+- [ ] Deliver the private preview-and-approval slice before adding approved references to story artwork. Follow the agreed consent, visibility, request-limit, approval-versioning, invalidation, replacement/disablement/deletion, retention, and stale-job rules in [story-experience.md](story-experience.md#hero-preview-and-approval).
+- [ ] Deliver persistent visual identity and multi-reference scene generation as a subsequent slice. Keep the original portrait as the identity anchor rather than chaining only generated scenes. OpenAI documentation for the configured development model (`gpt-image-1`) describes `/v1/images/edits`, up to 16 GPT Image inputs, and optional high/low `input_fidelity`; the existing request uses one reference and omits that option. Verify the effective configured model, project permissions/settings, request behavior, and measured identity/cost/latency quality before relying on the capability. API documentation does not establish multi-reference likeness fidelity.
+- [ ] Update [architecture.md](architecture.md#likeness-boundary) after each slice to describe the verified request path and trust boundaries. Keep source portraits, identity-derived references, and any future face embeddings or adapters ownership-scoped; do not place image content or unrestricted references in queues or logs.
+- [ ] Update [api-summary.md](api-summary.md) with verified preview, approval, and regeneration routes and error contracts; update [data-model.md](data-model.md) with the corresponding versioned records, provenance, relationships, and migrations. Do not document proposed fields or routes as existing behavior.
+- [ ] Update [development-guide.md](development-guide.md) with validated model capabilities, configuration, and reproducible evaluation steps. Keep the README and [application-overview.md](application-overview.md) as navigation rather than duplicate workflow specifications.
+- [ ] Validate the frontend-to-API-to-persistence-to-queue-to-worker flow, including consent revocation, replacement, stale approval, and superseded-scene cases. Record quality results separately from policy-test success before marking the quality milestone complete.
+- [ ] Only if the hosted path misses agreed quality gates, benchmark a commercially licensed identity-conditioned alternative behind the strategy boundary. Review base-model, adapter, and face-encoder licenses and provider retention; consider per-user LoRA only if measured gains justify training and sensitive-artifact lifecycle costs.
+
+Keep [handoff-plan.md](handoff-plan.md) frozen during this follow-up unless the agreed product contract changes; then amend the baseline and bump its version. Delivery status and evaluation outcomes remain on this roadmap, while each other page owns only its assigned facts.
 
 ## Mid-term (production readiness)
 

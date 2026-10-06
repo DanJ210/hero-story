@@ -28,18 +28,19 @@ The page also states that generated artwork remains part of the story after port
 
 This is draft language, not approved notice copy. Confirm the rights/permission statement and the provider wording with the privacy owner, verify the provider terms and data controls for the configured operation, and add the correct link before presenting the text as a policy. If the approved consent changes the purpose, provider, scope, or material retention terms, issue a new policy version and obtain a new grant. Keep `hero-likeness-v1` only if the approved terms remain materially the same.
 
-## Proposed decision set (not approved)
+### Hero-preview consent draft
 
-These are suggested starting positions to make the open choices concrete. The decisions and their deferred status are tracked in the [roadmap](roadmap.md).
+The product owner approved this draft in principle for privacy-owner review. It is not approved notice copy and does not authorize preview generation:
 
-| Topic | Options | Suggested starting position |
-| --- | --- | --- |
-| Notice and policy version | Approve the existing notice, approve revised wording, or replace it with privacy-owner-approved language. | Review the suggested text above. Keep `hero-likeness-v1` only if the approved scope and material terms remain unchanged; otherwise version the policy and require a fresh grant. |
-| Provider scope | Keep a broad provider label, or scope consent to the exact provider/model operation that receives a portrait. | Limit `openai-images` to the configured OpenAI image model and the reference-image generation/edit operation that receives the portrait. Do not extend it to other providers, models, or purposes without a distinct scope and fresh consent. |
-| Minor access | Allow minors with appropriate safeguards, prohibit access, or defer the feature until eligibility can be determined. | Do not offer likeness personalization to minors until an age policy and a reliable way to enforce eligibility are approved. Because accounts have no age-band information, eligibility cannot be assumed from the current account data. |
-| Provider retention and in-flight requests | Accept verified provider terms, require stronger deletion/retention controls, or withhold portrait submission until terms are acceptable. | Before production use, verify retention and deletion for the exact image operation and account configuration. Explain that app-side deletion cannot recall a request already sent. Accept the in-flight boundary only if provider handling is acceptable; otherwise do not send portraits. |
-| Consent/audit record retention and access | Retain for the account lifetime, retain for a defined period after revocation/account deletion, or apply a legally required schedule. | Minimize the recorded data, restrict access to authorized staff, and set a documented retention/deletion schedule based on operational and legal requirements. The exact period needs privacy-owner approval; do not invent one here. |
-| Export auditing | Add it before an export feature exists, or add it with that feature. | Defer until a real export operation exists, then audit the operation and its outcome. |
+> I confirm that I own or am authorized to use this portrait. I consent to Hero Story storing it privately and sending it to OpenAI's Images API when I request a hero preview. OpenAI states that API inputs are not used to train or improve its models unless the customer opts in. By default, image-edit requests may be included in abuse-monitoring logs for up to 30 days, and may be retained longer when required by law or reasonably necessary to protect OpenAI, its services, or others. OpenAI scans image inputs for prohibited content; images flagged for potential child sexual abuse material may be retained for manual review, even when data-retention controls apply. Disabling, replacing, or deleting this portrait deletes it and its private hero previews from Hero Story, but cannot recall a request already sent to OpenAI or delete any provider-retained copy. This consent is only for generating a private hero preview. Story artwork requires separate consent and an explicit story or scene opt-in. [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data).
+
+OpenAI's documentation states that `/v1/images/edits` has no application-state retention, is eligible for Zero Data Retention subject to limitations, and has up to 30 days of default abuse-monitoring retention. Zero Data Retention and Modified Abuse Monitoring require OpenAI approval and account/project configuration; the repository does not establish the effective setting for the evaluation or deployment account. The image-input scanning exception above applies even with those controls. The documentation also states API inputs are not used for model training unless the customer opts in. Verify the actual account settings and have the privacy owner approve final wording and the linked terms before collecting a preview grant.
+
+The worker development profile selects `gpt-image-1`. OpenAI's [Image API documentation](https://developers.openai.com/api/reference/resources/images) describes image edits from one or more source images, accepts up to 16 image inputs for GPT Image models, and documents optional `input_fidelity` values `high` and `low` for `gpt-image-1`. The existing application request uses one source image and does not set `input_fidelity`. This verifies documented API capability only; it does not establish account authorization, identity-preservation quality, or the quality of multiple references used together.
+
+## Remaining decisions for privacy-owner review
+
+Product choices for the preview flow are recorded in [story-experience.md](story-experience.md#hero-preview-and-approval). Privacy, provider-account, and release gates remain in the [roadmap](roadmap.md).
 
 ## In-flight provider requests
 

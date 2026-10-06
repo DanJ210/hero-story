@@ -10,7 +10,7 @@ using SixLabors.ImageSharp.Formats.Jpeg;
 
 namespace HeroStory.Worker;
 
-public class DallE3Strategy : IImageGeneratorStrategy
+public class OpenAiImageStrategy : IImageGeneratorStrategy
 {
     private readonly IBlobStorageService _blobStorageService;
     private readonly AppDbContext _dbContext;
@@ -18,7 +18,7 @@ public class DallE3Strategy : IImageGeneratorStrategy
     private readonly AzureBlobService _blobService;
     private readonly IConfiguration _configuration;
 
-    public DallE3Strategy(IBlobStorageService blobStorageService, AppDbContext dbContext, OpenAiClient openAiClient, AzureBlobService blobService, IConfiguration configuration)
+    public OpenAiImageStrategy(IBlobStorageService blobStorageService, AppDbContext dbContext, OpenAiClient openAiClient, AzureBlobService blobService, IConfiguration configuration)
     {
         _blobStorageService = blobStorageService;
         _dbContext = dbContext;
@@ -27,7 +27,7 @@ public class DallE3Strategy : IImageGeneratorStrategy
         _configuration = configuration;
     }
 
-    public string Name => "dalle3";
+    public string Name => "openai";
 
     public async Task GenerateAsync(GenerationJob job, CancellationToken cancellationToken)
     {

@@ -68,7 +68,7 @@ public class LikenessConsentAuditPathTests
         imageStorage.Setup(storage => storage.GenerateImageAccessUrl(It.IsAny<string>()))
             .Returns("https://images.test/generated");
         var workerBlobService = LikenessWorkerFixture.CreatePortraitBlobService(configuration);
-        var strategy = new DallE3Strategy(
+        var strategy = new OpenAiImageStrategy(
             imageStorage.Object,
             dbContext,
             LikenessWorkerFixture.CreateOpenAiClient(handler, configuration),
