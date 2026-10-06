@@ -42,15 +42,6 @@ The worker development profile selects `gpt-image-1`. OpenAI's [Image API docume
 
 Product choices for the preview flow are recorded in [story-experience.md](story-experience.md#hero-preview-and-approval). Privacy, provider-account, and release gates remain in the [roadmap](roadmap.md).
 
-| Topic | Recorded product direction | Remaining review |
-| --- | --- | --- |
-| Preview notice and policy version | Preview generation has separate explicit consent; the preview notice above is accepted in principle as a draft. | Approve final wording and links. Set the policy version and fresh-grant requirements based on final purpose, provider scope, and material retention terms; do not reuse `hero-likeness-v1` without that review. |
-| Provider scope | Scope consent to the exact configured provider, model, and reference-image operation. A preview grant does not authorize story artwork. | Confirm the effective provider/model and account/project settings. Obtain fresh consent if provider, model, or purpose changes. |
-| Age eligibility | General availability remains disabled pending an enforceable age policy; evaluation enrollment also remains blocked pending a privacy-approved age-verification workflow. | Approve the eligibility standard, verification method, and adult-volunteer recruitment/consent procedure. |
-| Provider retention and in-flight requests | Disclose provider handling; an in-flight request cannot be recalled and a stale result is discarded by the application. | Confirm acceptable terms and effective retention controls for the exact account/operation. OpenAI documentation describes up to 30 days of default abuse-monitoring retention, with exceptions, and image-input scanning that can retain flagged material even with retention controls. |
-| Source/preview backups and consent/audit records | Delete source and derived preview bytes from active application storage on disablement, replacement, and deletion; retain necessary metadata only under an approved schedule. Disclose the verified maximum backup-expiry window. | Verify the deployment's actual backup expiry and approve the consent/audit-record retention schedule and access restrictions. |
-| Export auditing | Revisit auditing when an export operation exists. | There is no export endpoint or event to audit yet. |
-
 ## In-flight provider requests
 
 Revocation prevents queued work and work that has not been dispatched from using the portrait. A provider request already in flight cannot be recalled; if the grant or portrait is revoked before the result is attached, the application discards that result.
