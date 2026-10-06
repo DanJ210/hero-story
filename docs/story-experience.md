@@ -147,6 +147,18 @@ The feature must follow these boundaries:
 
 The user should be able to preview, replace, disable, and remove their likeness independently of deleting the story. Existing generated artwork follows a retain-output policy: deleting a portrait or account stops future likeness generation and settles in-flight likeness jobs, but already generated scene artwork remains as story output unless a separate story-deletion flow removes it. This policy must be presented before consent.
 
+### Hero preview and approval
+
+Hero preview generation requires a separate, explicit consent grant from consent for story-artwork likeness. Preview approval records that the user accepts one exact generated hero appearance as a visual reference; approval neither grants consent nor enables likeness use in story artwork. Any later scene-artwork use continues to require valid consent and the applicable explicit session- or scene-level likeness opt-in.
+
+A hero appearance uses a structured costume/style specification with curated defaults for suit archetype, primary and secondary colors, emblem, and accessories. The option catalog is fixed and versioned with the specification. Each generated preview is tied to the exact source portrait version, preview-consent grant and provider scope, specification/catalog version, and provider/model operation. Approval applies only to that preview version. Editing the costume/style specification or generating a replacement preview does not deactivate an existing approval; it remains the selected appearance until the user approves a replacement. A source portrait/version or provider/model-scope change invalidates the approval.
+
+Preview generation is user-initiated and asynchronous. Only the owner can view or retrieve preview output through authenticated, non-cacheable access. Allow at most one active preview job and three total requests per user in a rolling 24-hour period, including the first request. A stale job whose source, consent, or provider/model scope is no longer valid must not publish its result. Provider work already in flight cannot be recalled; revalidate after it returns and discard stale output.
+
+Replacing, disabling, or deleting a source portrait deletes its source bytes and all derived private previews immediately, invalidates approvals tied to that source, and prevents further use. Necessary consent, provenance, and audit metadata may remain according to the applicable retention schedule. Backup copies may expire through the normal backup lifecycle; disclose the verified maximum expiry window before consent. This private-preview deletion rule is distinct from the retain-output rule for generated story artwork.
+
+General preview availability requires an enforceable age-eligibility policy. Before that policy exists, preview use is limited to a staff-controlled allowlist for consenting adult evaluation, and only after the exact configured model operation and provider-retention terms are verified. The evaluation may use five consenting adult volunteers and six scene types per person (close-up, profile, full-body, action, low light, and multiple people) as proposed targets. The proposed targets of at least 80% accepted without regeneration and mean likeness of at least 4/5 are not release requirements or measured results.
+
 ## UX direction
 
 - The frontend uses a persistent story workspace rather than navigating between disconnected scene cards.
