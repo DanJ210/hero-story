@@ -16,6 +16,22 @@
 			"problemMatcher": [
 				"$msCompile"
 			]
+		},
+		{
+			"label": "Run Hero Story Worker",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"run",
+				"--project",
+				"src\\HeroStory.Worker",
+				"--launch-profile",
+				"HeroStory.Worker"
+			],
+			"isBackground": true,
+			"problemMatcher": [
+				"$msCompile"
+			]
 		}
 	]
 }
