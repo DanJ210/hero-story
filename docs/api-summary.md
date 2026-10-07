@@ -4,6 +4,10 @@ Base route prefix: `/api`
 
 The API is implemented in `src/HeroStory.Api` using controller-based endpoints and DTO contracts. This document describes the endpoints that exist today; outstanding work is tracked in [roadmap.md](roadmap.md).
 
+## API documentation
+
+In the `Development` environment, `/swagger/index.html` serves the Swagger UI and `/swagger/v1/swagger.json` serves its OpenAPI document. Neither endpoint is exposed outside Development.
+
 ## Authentication endpoints (`/api/auth`)
 
 - `POST /api/auth/register`
