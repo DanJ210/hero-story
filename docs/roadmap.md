@@ -75,6 +75,17 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 
 - [x] Add vertical-slice tests proving automatic artwork retry and completed-job idempotency.
 
+### Character-roleplay alignment
+
+The agreed interaction contract is in [story-experience.md](story-experience.md#player-contribution-contract). The contribution and validation path is described in [architecture.md](architecture.md#synchronous-path-user-facing). The prompt does not define asterisk narration, dialogue semantics, or explicit player-agency boundaries. The composer asks "What does your hero do?" and provides no narration guidance. Story participation is supported, but the roleplay contract, distinct suggestion semantics, and adaptive pacing remain outstanding.
+
+- [ ] Align continuation and revision prompts with the player contribution and agency contract, including ordered mixed input, private thoughts, constrained narrative direction, and in-world responses.
+- [ ] Define handling for unmatched, escaped, and literal asterisks before implementing formatting or parsing.
+- [ ] Preserve suggestion action/intent semantics separately from the default interpretation of typed dialogue, without weakening moderation, ownership checks, or revision history.
+- [ ] Align composer guidance, contribution display, and revision editing with dialogue and asterisk narration.
+- [ ] Replace the fixed per-turn word minimum with adaptive pacing in both generation instructions and response validation; choose bounded length limits without padding brief conversations.
+- [ ] Validate the frontend-to-API-to-generation-to-persistence flow for dialogue-only, narration-only, mixed contributions, thoughts, selected suggestions, and revision. Verify that world consequences do not take over the hero's decisions or expose private thoughts, and that concise responses retain valid structured state.
+
 ### Proposed likeness-quality workflow and documentation alignment
 
 The consent-driven likeness path above does not establish visual-quality acceptance. This follow-up is proposed work, not shipped preview, approval, or multi-reference behavior. Start with the configured OpenAI image strategy; do not change providers or introduce per-user training before a bounded quality evaluation. Product decisions for preview consent, visibility, regeneration limits, approval binding, invalidation, appearance catalog, derived-preview deletion, and temporary adult-evaluation eligibility are recorded in [story-experience.md](story-experience.md#hero-preview-and-approval). Those decisions do not establish implementation status.

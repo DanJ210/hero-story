@@ -1,10 +1,12 @@
 # Interactive Hero Story MVP — GitHub Copilot Agent Handoff Package
 
-**Version:** 1.1  
-**Date:** Aug 12, 2026  
+**Version:** 1.2\
+**Date:** Oct 7, 2026\
 **Status:** Frozen baseline. Amend only when the product contract itself changes, and bump the version when you do.
 
 This page records the baseline agreed at project kickoff. It is a historical reference for original scope and intent, not a description of current behavior. Diff proposed work against it to detect scope drift.
+
+Version 1.2 records the agreed product-contract amendment from a passage-and-action loop to player-controlled character roleplay with interaction-sensitive response pacing. The authoritative semantics and agency boundaries live in [story-experience.md](story-experience.md#player-contribution-contract); technical architecture commitments are unchanged.
 
 ## Baseline statement
 

@@ -1,0 +1,54 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Hero Story API",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"run",
+				"--project",
+				"src/HeroStory.Api",
+				"--launch-profile",
+				"http"
+			],
+			"isBackground": true,
+			"problemMatcher": [
+				"$msCompile"
+			]
+		},
+		{
+			"label": "Run Hero Story Worker",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"run",
+				"--project",
+				"src/HeroStory.Worker",
+				"--launch-profile",
+				"HeroStory.Worker"
+			],
+			"isBackground": true,
+			"problemMatcher": [
+				"$msCompile"
+			]
+		},
+		{
+			"label": "Run Hero Story Frontend",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"src/HeroStory.Frontend",
+				"run",
+				"dev",
+				"--",
+				"--port",
+				"5173",
+				"--strictPort"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

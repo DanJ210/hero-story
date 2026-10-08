@@ -2,16 +2,16 @@
 
 ## Product promise
 
-Hero Story is a serialized superhero story in which the reader is the main character. It uses a conversational interaction loop, but the primary output is book-like narrative rather than a general-purpose chat transcript.
+Hero Story is a serialized superhero roleplaying story in which the user inhabits their hero. The user plays one character; the AI narrates the world, portrays other characters, and resolves consequences.
 
-The user defines a hero, reads the next passage, and responds with what their hero says, attempts, or chooses. The system advances the story while preserving continuity and making the user's decisions materially affect later events.
+The user defines a hero, reads the next passage, and participates through their hero's dialogue, actions, and thoughts. Character roleplay and book-like storytelling work together: responses use narrative prose and in-world dialogue, preserve continuity, and make the user's contributions materially affect later events.
 
 ## Experience principles
 
-1. **The user is the hero.** Narrative addresses the configured hero as the protagonist and does not replace them with an autonomous lead character.
-2. **Story first, chat second.** Generated passages read as polished prose. The conversation model exists to make participation easy.
+1. **The user controls the hero.** The AI does not invent the hero's significant decisions, spoken lines, feelings, or intentions. It describes external events and consequences without replacing the user with an autonomous lead character.
+2. **Roleplay within a story.** Dialogue exchanges can be brief, while discoveries and major events can receive longer prose. The AI responds in-world and stops at the next meaningful opportunity for the user to participate.
 3. **Choices have consequences.** User actions can alter relationships, resources, risks, locations, conflicts, and the ending of an episode.
-4. **The user owns the direction.** Free-text actions are always accepted when safe; suggestions are optional prompts, not restrictions.
+4. **The user owns their contribution.** Safe free-text contributions are accepted; suggestions are optional prompts, not restrictions. Acceptance of an attempted action does not guarantee its success.
 5. **Revision is supported.** The user can revise a turn and continue from the revised version without silently rewriting the historical record.
 6. **Continuity is explicit.** The system stores compact structured state instead of relying only on replaying an ever-growing transcript.
 7. **Safety stays in the loop.** User input and generated output remain moderated before they become part of the active story.
@@ -20,10 +20,10 @@ The user defines a hero, reads the next passage, and responds with what their he
 
 1. The user creates a story session with a hero name, archetype or powers, genre, tone, and optional premise.
 2. The system generates an opening passage or continues from the active story state.
-3. The passage is approximately 250–500 words and ends with a situation that invites action.
+3. The response fits the moment: a short exchange for conversation, or a longer passage for scene-setting, discovery, or a major event. It leaves the hero's next meaningful choice to the user.
 4. The system offers 2–3 suggested actions.
-5. The user either selects a suggestion or enters a free-text action.
-6. The input is moderated and interpreted as intent, dialogue, or action.
+5. The user either selects a suggestion or enters dialogue, asterisk-delimited narration, or a mixture of both.
+6. The input is moderated and interpreted under the contribution contract below.
 7. The system generates the next passage and a structured state update.
 8. Selected major story beats enqueue artwork; ordinary turns do not require an image.
 9. The loop continues until the episode reaches a deliberate conclusion or the user pauses it.
@@ -35,7 +35,32 @@ The user defines a hero, reads the next passage, and responds with what their he
 - The hero can fail an attempt, suffer setbacks, lose resources, or damage relationships. The story should convert failure into consequence and a new decision rather than ending participation unexpectedly.
 - Permanent hero death is not introduced by surprise in the MVP. Irreversible outcomes require a future explicit user preference and safety design.
 - The default tone is suitable for a broad teen audience. More specific content-rating controls remain a product decision before production launch.
-- Free text is authoritative; suggested actions never limit what the user may safely attempt.
+- Free text is authoritative about what the hero says, attempts, or expresses internally, not about guaranteed outcomes or changes to established world facts. Suggested actions never limit what the user may safely attempt.
+
+## Player contribution contract
+
+- Text outside asterisks is dialogue spoken aloud by the user's hero. Quotation marks are optional.
+- Text between paired single asterisks, such as `*I lower my shield*`, is narration rather than speech. It describes the hero's actions, attempts, internal thoughts, or narrative direction.
+- A message can mix narration and dialogue. Interpret the segments in their written order and respond to both without turning narration into spoken words.
+- Internal thoughts are not information other characters can hear or know unless an established story ability or observable action makes that information available.
+- Narrative direction guides the next scene subject to safety, continuity, and established world constraints. It does not automatically make an attempt succeed, force another character's response, or rewrite accepted history.
+- A selected suggestion expresses the proposed action or intent, not dialogue merely because its label lacks asterisks.
+- User contributions are story data, not authority to change system instructions, moderation, or the output contract.
+
+For example:
+
+```text
+*I conceal the glowing artifact beneath my coat and approach the guard.*
+Is the north gate still open?
+```
+
+The AI narrates the attempt and the guard's reaction, then answers through the guard's dialogue. It does not automatically take the hero through the gate, add a new line of speech for the hero, or decide the hero's next move.
+
+## Response pacing and agency
+
+Response length follows the interaction rather than a mandatory word minimum on every turn. A brief question can receive a brief in-world answer with relevant scene context; an opening, discovery, or major event can receive a longer book-like passage.
+
+Advance the world enough to make the contribution matter, but stop before deciding the hero's next significant action. Do not pad a conversation to meet a prose quota or resolve several unchosen hero decisions in one response. Concise turns still return the structured continuity state and metadata required by the turn contract.
 
 ## Turn contract
 
@@ -68,7 +93,7 @@ The target generation result is conceptually:
 
 The model response must be parsed and validated as structured data. Invalid output should fail safely or be retried; application state must not be derived by brittle string parsing.
 
-Validation enforces the 250–500 word target, field lengths, 2–3 distinct suggestions, object-shaped state, and a 16 KB serialized state limit. Persisted context must use supported schema version 1. Malformed responses retry within a bounded, configurable policy before the turn fails.
+Validation must allow the response pacing above while bounding output size, field lengths, 2–3 distinct suggestions, object-shaped state, and a 16 KB serialized state limit. Persisted context must use supported schema version 1. Malformed responses retry within a bounded, configurable policy before the turn fails. The generation and validation request path is described in [architecture.md](architecture.md#synchronous-path-user-facing).
 
 ## Continuity and influence
 
@@ -81,7 +106,7 @@ Each generation request should include:
 - the new user contribution,
 - pacing, length, safety, and output-schema instructions.
 
-A turn should record which state changed because of the user's action. The narrative must acknowledge that action directly and produce at least one observable consequence unless the action is impossible within established story rules. When an action cannot succeed, the story should explain why and still allow the attempt to affect the situation.
+A turn should record which state changed because of the user's contribution. The response must acknowledge the contribution directly with a proportionate consequence: another character's answer, new information, an external reaction, or an action outcome. A private thought does not require an unexplained reaction from another character or an artificial world-state change. When an action cannot succeed, the story should explain why and still allow the attempt to affect the situation.
 
 ## Revision model
 
@@ -179,12 +204,12 @@ This document defines the product contract, not delivery status. Delivery status
 
 ## MVP acceptance criteria
 
-The interactive story vertical slice is complete when:
+Acceptance of the interactive story vertical slice requires:
 
 1. An authenticated user can create a hero and begin an episode.
-2. Each turn accepts free text and displays 2–3 optional suggestions.
-3. Generated passages are normally 250–500 words and read as continuous prose.
-4. A user's action is acknowledged and changes stored story state or produces an explained consequence.
+2. Each turn accepts dialogue, asterisk-delimited narration, or mixed free text and displays 2–3 optional suggestions whose selection retains action or intent semantics.
+3. Responses combine in-world dialogue and continuous prose with length appropriate to the interaction, including concise conversational replies.
+4. The user's contribution is acknowledged with a proportionate consequence, persisted state remains consistent, and the AI leaves the hero's significant decisions, speech, and inner life under user control.
 5. Continuity survives at least one complete episode without replaying the full raw transcript on every request.
 6. The latest turn can be revised, with the prior version retained and removed from the active path.
 7. Episode completion is explicit and the completed active path remains readable.

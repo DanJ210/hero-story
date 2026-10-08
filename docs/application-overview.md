@@ -1,6 +1,6 @@
 # Documentation index
 
-Hero Story is an authenticated, serialized superhero-story experience where the reader is the protagonist. It uses a conversational interaction loop while presenting generated content as continuous, book-like prose.
+For Hero Story's product promise and player interaction contract, see [story-experience.md](story-experience.md).
 
 This page is the entry point to `docs/`. Each fact has exactly one home; use the table below to find it rather than looking for a summary here.
 

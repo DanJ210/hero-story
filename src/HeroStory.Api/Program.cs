@@ -157,6 +157,7 @@ if (builder.Configuration.GetValue("DB_APPLY_MIGRATIONS", false))
 
 if (app.Environment.IsDevelopment())
 {
+    app.UseSwagger();
     app.UseSwaggerUI();
 }
 
