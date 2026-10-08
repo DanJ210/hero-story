@@ -1,6 +1,6 @@
 # Hero Story
 
-Hero Story is a serialized superhero story where the reader is the main character. The experience uses a conversational loop: the application presents a book-like passage, the user decides what their hero says or does, and the next passage reflects that decision. The repository spans an API, worker, frontend, core domain, infrastructure, and tests.
+Hero Story is a serialized superhero roleplaying story. Its player interaction contract is defined in [docs/story-experience.md](docs/story-experience.md). The repository spans an API, worker, frontend, core domain, infrastructure, and tests.
 
 ## Project overview
 
