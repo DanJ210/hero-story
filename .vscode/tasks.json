@@ -8,7 +8,7 @@
 			"args": [
 				"run",
 				"--project",
-				"src\\HeroStory.Api",
+				"src/HeroStory.Api",
 				"--launch-profile",
 				"http"
 			],
@@ -24,7 +24,7 @@
 			"args": [
 				"run",
 				"--project",
-				"src\\HeroStory.Worker",
+				"src/HeroStory.Worker",
 				"--launch-profile",
 				"HeroStory.Worker"
 			],
@@ -39,7 +39,7 @@
 			"command": "npm",
 			"args": [
 				"--prefix",
-				"src\\HeroStory.Frontend",
+				"src/HeroStory.Frontend",
 				"run",
 				"dev",
 				"--",
