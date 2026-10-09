@@ -21,6 +21,7 @@ This document describes the persisted model in present tense. It does not track 
 - User-owned story container.
 - Query-filtered for logical deletion (`DeletedAt == null`).
 - Parent for scenes and generation context.
+- Stores user-authored setup text with SQL Server length limits shared through `StorySessionFieldLimits`: `Title` `nvarchar(200)`, `Genre` `nvarchar(500)`, `HeroArchetype` `nvarchar(1000)`, and `HeroName` `nvarchar(100)`. The API validates these limits before persistence, and the combined opening moderation input stays within the moderation input limit.
 - Tracks the active episode through `Status` (`active`, `paused`, `completed`, `archived`, `pendingDeletion`) and carries the default-off `LikenessEnabled` opt-in.
 - Persists compacted continuity in `ContinuitySummary`, the last covered scene sequence in `ContinuitySummaryThroughSequence`, and its timestamp in `ContinuitySummaryUpdatedAt`.
 
@@ -91,7 +92,7 @@ Use a schema-versioned structured representation. Storage may begin as provider-
 
 - Entity configuration classes live in the infrastructure assembly and are applied from there.
 - The API applies migrations at startup when `DB_APPLY_MIGRATIONS=true`.
-- Committed migrations under `src/HeroStory.Infrastructure/Data/Migrations`, in order: `InitialCreate`, `AddStructuredStoryTurn`, `AddSceneRevisionLineage`, `AddSceneConcurrencyToken`, `AllowMultipleGenerationJobsPerScene`, `AddUserPortraitConsent`, `AddPortraitProvenanceToGenerationJobs`, `AddAutomaticLikenessOptIn`, `AddContinuitySummary`, `AddPortraitConsentAudit`.
+- Committed migrations under `src/HeroStory.Infrastructure/Data/Migrations`, in order: `InitialCreate`, `AddStructuredStoryTurn`, `AddSceneRevisionLineage`, `AddSceneConcurrencyToken`, `AllowMultipleGenerationJobsPerScene`, `AddUserPortraitConsent`, `AddPortraitProvenanceToGenerationJobs`, `AddAutomaticLikenessOptIn`, `AddContinuitySummary`, `AddPortraitConsentAudit`, `ExpandStorySessionSetupFields`.
 
 ## Related docs
 

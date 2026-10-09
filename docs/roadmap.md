@@ -42,6 +42,7 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 - [x] Include bounded older active-path continuity summaries and state markers in generation prompts.
 - [x] Compact older active-path scenes into a persisted multi-turn continuity summary while retaining a recent generation-context window.
 - [x] Retry failed artwork jobs through bounded queue redelivery without regenerating completed jobs.
+- [x] Expand story setup genre (500) and hero archetype (1000) storage with matching create/patch API validation and labeled setup-form length feedback.
 
 ### Hero-likeness phases
 

@@ -56,6 +56,8 @@ All routes require authentication and are scoped to the calling user. Portrait b
 - `POST /api/sessions`
   - Creates a session and immediately generates its opening story turn from the supplied title, genre, hero archetype, and hero name.
   - Accepts an optional `likenessEnabled` flag, defaulting to `false`, that opts the session into automatic likeness artwork.
+  - Requires non-blank `title` (max 200 characters), `genre` (max 500), `heroArchetype` (max 1000), and `heroName` (max 100). Accepted text is stored exactly as submitted, without trimming or truncation.
+  - Validates every field before persisting the session or starting moderation and opening generation. Blank or oversized values return `400` with `{"error":"Genre must be 500 characters or fewer.","status":400}`, listing each invalid field in one message. An omitted or `null` field is rejected by model binding with a `400` validation problem response (`errors` keyed by field).
   - Returns `201 Created` with `{ session, openingScene }`.
   - Removes the newly created session if opening generation fails, preventing empty stories from remaining in the session list.
 - `GET /api/sessions/{id}`
@@ -74,6 +76,7 @@ All routes require authentication and are scoped to the calling user. Portrait b
   - Requires the structured provider result to confirm `isEpisodeComplete`; the session then transitions to `completed`.
 - `PATCH /api/sessions/{id}`
   - Updates mutable session state.
+  - Omitted or `null` setup fields are left unchanged. Provided `title`, `genre`, `heroArchetype`, and `heroName` values must be non-blank and within the same limits as creation; otherwise the request returns `400` with `{ error, status }` and nothing is changed.
 - `DELETE /api/sessions/{id}`
   - Soft-deletes/marks session removal.
 

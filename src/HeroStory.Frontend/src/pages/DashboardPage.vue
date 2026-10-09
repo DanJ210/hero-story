@@ -4,11 +4,31 @@
       <h1>{{ title }}</h1>
       <button @click="logout">Logout</button>
     </header>
-    <form @submit.prevent="create">
-      <input v-model="form.title" placeholder="Story title" />
-      <input v-model="form.genre" placeholder="Genre" />
-      <input v-model="form.heroArchetype" placeholder="Hero archetype" />
-      <input v-model="form.heroName" placeholder="Hero name" />
+    <form class="story-setup" novalidate @submit.prevent="create">
+      <div v-for="field in setupFields" :key="field.key" class="setup-field">
+        <label :for="`story-${field.key}`">{{ field.label }}</label>
+        <p :id="`story-${field.key}-help`" class="field-help">{{ field.help }}</p>
+        <textarea
+          v-if="field.multiline"
+          :id="`story-${field.key}`"
+          v-model="form[field.key]"
+          rows="3"
+          :aria-describedby="`story-${field.key}-help story-${field.key}-count${fieldErrors[field.key] ? ` story-${field.key}-error` : ''}`"
+          :aria-invalid="fieldErrors[field.key] ? 'true' : undefined"
+          required
+        ></textarea>
+        <input
+          v-else
+          :id="`story-${field.key}`"
+          v-model="form[field.key]"
+          type="text"
+          :aria-describedby="`story-${field.key}-help story-${field.key}-count${fieldErrors[field.key] ? ` story-${field.key}-error` : ''}`"
+          :aria-invalid="fieldErrors[field.key] ? 'true' : undefined"
+          required
+        />
+        <span :id="`story-${field.key}-count`" class="field-count" :class="{ over: form[field.key].length > storySetupLimits[field.key] }">{{ form[field.key].length }} / {{ storySetupLimits[field.key] }}</span>
+        <p v-if="fieldErrors[field.key]" :id="`story-${field.key}-error`" class="field-error" role="alert">{{ fieldErrors[field.key] }}</p>
+      </div>
       <label><input v-model="form.likenessEnabled" type="checkbox" :disabled="!portraitConsentValid" /> Use my private portrait for automatic beat artwork</label>
       <button type="submit" :disabled="sessionStore.creating">{{ sessionStore.creating ? "Beginning story..." : "Begin story" }}</button>
     </form>
@@ -46,12 +66,20 @@ import { useAuthStore } from "../stores/authStore";
 import { useSessionStore } from "../stores/sessionStore";
 import type { PortraitDto } from "../types/api";
 import * as authApi from "../api/authApi";
+import { extractApiErrorMessage, storySetupLabels, storySetupLimits, validateStorySetup, type StorySetupErrors, type StorySetupField } from "../utils/storySetup";
 const title = import.meta.env.VITE_APP_TITLE ?? "Hero Story";
 const router = useRouter();
 const authStore = useAuthStore();
 const sessionStore = useSessionStore();
 const form = reactive({ title: "", genre: "", heroArchetype: "", heroName: "", likenessEnabled: false });
 const creationError = ref("");
+const fieldErrors = ref<StorySetupErrors>({});
+const setupFields: { key: StorySetupField; label: string; help: string; multiline: boolean }[] = [
+  { key: "title", label: storySetupLabels.title, help: "The name of this story.", multiline: false },
+  { key: "genre", label: storySetupLabels.genre, help: "Describe the genre, tone, or setting style. A short phrase or a few sentences.", multiline: true },
+  { key: "heroArchetype", label: storySetupLabels.heroArchetype, help: "Describe the kind of hero: role, powers, temperament, or background.", multiline: true },
+  { key: "heroName", label: storySetupLabels.heroName, help: "What your hero is called in the story.", multiline: false }
+];
 const portraitFile = ref<File | null>(null);
 const portraitConsent = ref(false);
 const portraitUploaded = ref(false);
@@ -105,19 +133,28 @@ onMounted(async () => {
 onBeforeUnmount(() => setPortraitPreview(null));
 const create = async () => {
   creationError.value = "";
+  fieldErrors.value = validateStorySetup(form);
+  if (Object.keys(fieldErrors.value).length > 0) return;
   try {
     const result = await sessionStore.createSession(form);
     await router.push(`/sessions/${result.session.id}`);
   } catch (error) {
-    creationError.value = axios.isAxiosError(error) && typeof error.response?.data?.error === "string"
-      ? error.response.data.error
-      : "The story could not be started. Please try again.";
+    creationError.value = extractApiErrorMessage(error, "The story could not be started. Please try again.");
   }
 };
 const logout = async () => { await authStore.logout(); await router.push("/login"); };
 </script>
 
 <style scoped>
+.story-setup { display: grid; gap: 14px; max-width: 520px; margin: 16px 0; }
+.setup-field { display: grid; gap: 4px; }
+.setup-field label { font-weight: 700; font-size: 14px; }
+.setup-field input, .setup-field textarea { width: 100%; box-sizing: border-box; font: inherit; }
+.setup-field textarea { resize: vertical; }
+.field-help { margin: 0; color: #5c706d; font-size: 12px; }
+.field-count { justify-self: end; color: #5c706d; font-size: 12px; }
+.field-count.over { color: #a3312a; font-weight: 700; }
+.field-error { margin: 0; color: #a3312a; font-size: 13px; }
 .portrait-panel { max-width: 520px; margin: 24px 0; padding: 16px; border: 1px solid #d3dad6; border-radius: 8px; }
 .portrait-panel p { color: #5c706d; font-size: 13px; line-height: 1.45; }
 .portrait-panel label { display: block; margin: 12px 0; font-size: 13px; }

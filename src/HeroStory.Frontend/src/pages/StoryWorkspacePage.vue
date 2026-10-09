@@ -56,12 +56,12 @@
           <Menu :size="22" />
         </button>
         <div v-if="workspaceStore.workspace" class="story-heading">
-          <span class="story-kicker">{{ workspaceStore.workspace.session.genre }}</span>
+          <span class="story-kicker" :title="workspaceStore.workspace.session.genre">{{ workspaceStore.workspace.session.genre }}</span>
           <h1>{{ workspaceStore.workspace.session.title }}</h1>
           <p>
             <span>{{ workspaceStore.workspace.session.heroName }}</span>
             <span aria-hidden="true">·</span>
-            <span>{{ workspaceStore.workspace.session.heroArchetype }}</span>
+            <span class="story-archetype" :title="workspaceStore.workspace.session.heroArchetype">{{ workspaceStore.workspace.session.heroArchetype }}</span>
           </p>
         </div>
         <RouterLink class="header-home" to="/" title="Story library">
@@ -462,7 +462,8 @@ onBeforeUnmount(() => { if (artworkTimer !== undefined) window.clearInterval(art
 .story-header { min-height: 86px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18px; padding: 15px clamp(20px, 4vw, 58px); border-bottom: 1px solid #d8d3c6; background: rgba(244, 241, 232, 0.94); }
 .mobile-menu { display: none; }
 .story-heading { min-width: 0; }
-.story-kicker { color: #b94c3b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.story-kicker { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #b94c3b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.story-archetype { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .story-heading h1 { margin: 3px 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Charter, Georgia, serif; font-size: clamp(24px, 3vw, 34px); font-weight: 700; letter-spacing: 0; }
 .story-heading p { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; color: #677777; font-size: 12px; }
 .header-home { display: flex; align-items: center; gap: 8px; color: #36565a; text-decoration: none; font-weight: 700; font-size: 13px; }

@@ -48,6 +48,7 @@ public class StoryService : IStoryService
 
     public async Task<SessionDto> CreateSessionAsync(Guid userId, CreateSessionRequest request, CancellationToken cancellationToken)
     {
+        StorySessionInputValidator.ValidateCreate(request);
         var session = new StorySession
         {
             Id = Guid.NewGuid(),
@@ -69,6 +70,7 @@ public class StoryService : IStoryService
 
     public async Task<SessionDto?> PatchSessionAsync(Guid userId, Guid sessionId, PatchSessionRequest request, CancellationToken cancellationToken)
     {
+        StorySessionInputValidator.ValidatePatch(request);
         var session = await _dbContext.StorySessions.SingleOrDefaultAsync(x => x.UserId == userId && x.Id == sessionId, cancellationToken);
         if (session is null)
         {

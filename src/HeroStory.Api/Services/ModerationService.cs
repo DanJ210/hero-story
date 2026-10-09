@@ -6,6 +6,8 @@ namespace HeroStory.Api.Services;
 
 public class ModerationService : IModerationService
 {
+    public const int MaximumInputCharacters = 2_000;
+
     private static readonly string[] InjectionIndicators = ["ignore previous", "system prompt", "developer message", "bypass"];
 
     // Superhero/sci-fi action is the product genre, so "violence" and non-threatening "harassment" are not blocking.
@@ -45,7 +47,7 @@ public class ModerationService : IModerationService
 
     public async Task<(ModerationStatus Status, string? Detail)> ModerateInputAsync(string input, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(input) || input.Length > 2_000)
+        if (string.IsNullOrWhiteSpace(input) || input.Length > MaximumInputCharacters)
         {
             return (ModerationStatus.Rejected, "Input length is invalid.");
         }
