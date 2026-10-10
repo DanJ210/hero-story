@@ -87,6 +87,16 @@ The agreed interaction contract is in [story-experience.md](story-experience.md#
 - [ ] Replace the fixed per-turn word minimum with adaptive pacing in both generation instructions and response validation; choose bounded length limits without padding brief conversations.
 - [ ] Validate the frontend-to-API-to-generation-to-persistence flow for dialogue-only, narration-only, mixed contributions, thoughts, selected suggestions, and revision. Verify that world consequences do not take over the hero's decisions or expose private thoughts, and that concise responses retain valid structured state.
 
+### User-authored setup and scene-prompt fidelity
+
+The retained-setup contract is defined in [story-experience.md](story-experience.md#persistent-user-authored-setup). Session title, genre, hero archetype, and hero name are persisted and included in text-generation prompts. Dedicated premise, appearance, equipment, and other richer setup capture are not implemented. Complete artwork-prompt alignment and validation before claiming that the user's descriptions guide both narrative and images; the interrupted worker-prompt edit does not establish delivery or visual quality.
+
+- [ ] Define how the setup form captures richer user-authored descriptions, preserving original input separately from generated state without requiring a separate field for every detail.
+- [ ] Carry retained setup and accepted active-path changes through opening, continuation, revision, and artwork prompts; remove unsupported generic genre assumptions.
+- [ ] Keep original setup available across compaction while preserving durable user-driven consequences and excluding superseded outcomes.
+- [ ] Complete and test bounded scene-artwork prompts for both ordinary and consented portrait-reference requests, including genre, hero description, accepted scene details, and retained final instructions.
+- [ ] Verify setup persistence and prompt fidelity across the request path, and evaluate generated images separately for scene adherence rather than treating prompt-content tests as proof of visual quality.
+
 ### Proposed likeness-quality workflow and documentation alignment
 
 The consent-driven likeness path above does not establish visual-quality acceptance. This follow-up is proposed work, not shipped preview, approval, or multi-reference behavior. Start with the configured OpenAI image strategy; do not change providers or introduce per-user training before a bounded quality evaluation. Product decisions for preview consent, visibility, regeneration limits, approval binding, invalidation, appearance catalog, derived-preview deletion, and temporary adult-evaluation eligibility are recorded in [story-experience.md](story-experience.md#hero-preview-and-approval). Those decisions do not establish implementation status.
