@@ -99,7 +99,9 @@ Validation must allow the response pacing above while bounding output size, fiel
 
 ### Persistent user-authored setup
 
-The user's setup descriptions establish the creative foundation of the story, not just a disposable opening prompt. Capture and retain the supplied genre, tone, setting or premise, hero background, appearance, clothing, equipment, abilities, and constraints wherever the user provides them. Preserve the original user-authored descriptions separately from generated summaries and evolving story state; prompt assembly and continuity compaction must not silently replace or discard them.
+The user's setup descriptions establish the creative foundation of the story, not just a disposable opening prompt. Session creation captures the genre, hero archetype and name, and an optional multiline story setup for details such as premise, setting, tone, background, appearance, clothing, equipment, abilities, and constraints. The setup is optional, may be empty or whitespace, and is retained exactly as submitted without trimming or truncation. The creation form explains its purpose, shows a live character count and readable validation without truncating input, and the reader workspace presents it as a collapsible original story setup.
+
+Preserve the original user-authored setup separately from generated summaries and evolving story state; prompt assembly and continuity compaction must not silently replace or discard it. Once an episode has begun, the original setup cannot be changed. Repeating the identical setup is harmless; a different setup is rejected, including when the episode contains only superseded scenes.
 
 Use that foundation for the opening and carry it forward into continuation, revision, and scene-artwork generation. A derived model prompt may organize the descriptions and add continuity, safety, pacing, and output instructions, but must not replace the user's creative direction with a generic fantasy or superhero template.
 

@@ -21,6 +21,18 @@ public class StorySessionInputValidationTests
         Assert.Equal(500, StorySessionFieldLimits.GenreMaxLength);
         Assert.Equal(1_000, StorySessionFieldLimits.HeroArchetypeMaxLength);
         Assert.Equal(100, StorySessionFieldLimits.HeroNameMaxLength);
+        Assert.Equal(4_000, StorySessionFieldLimits.StorySetupMaxLength);
+    }
+
+    [Fact]
+    public void SqlServerMapping_UsesNullableUnicodeSetupColumnWithExactLimit()
+    {
+        using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=MappingOnly;Trusted_Connection=True").Options);
+        var property = db.Model.FindEntityType(typeof(StorySession))!.FindProperty(nameof(StorySession.StorySetup))!;
+        Assert.True(property.IsNullable);
+        Assert.Equal(StorySessionFieldLimits.StorySetupMaxLength, property.GetMaxLength());
+        Assert.Equal("nvarchar(4000)", property.GetColumnType());
     }
 
     [Fact]
@@ -36,10 +48,11 @@ public class StorySessionInputValidationTests
     public async Task CreateSessionAsync_AcceptsExactBoundariesAndPersistsFullText()
     {
         await using var dbContext = CreateDbContext();
-        var service = new StoryService(dbContext);
+        var service = CreateStoryService(dbContext);
         var userId = Guid.NewGuid();
 
-        var result = await service.CreateSessionAsync(userId, new CreateSessionRequest(MaxTitle, MaxGenre, MaxArchetype, MaxHeroName), CancellationToken.None);
+        var setup = "  Original setup.\r\n".PadRight(StorySessionFieldLimits.StorySetupMaxLength, 's');
+        var result = await service.CreateSessionAsync(userId, new CreateSessionRequest(MaxTitle, MaxGenre, MaxArchetype, MaxHeroName, StorySetup: setup), CancellationToken.None);
 
         var stored = await dbContext.StorySessions.SingleAsync();
         Assert.Equal(MaxTitle, stored.Title);
@@ -48,6 +61,8 @@ public class StorySessionInputValidationTests
         Assert.Equal(MaxHeroName, stored.HeroName);
         Assert.Equal(MaxGenre, result.Genre);
         Assert.Equal(MaxArchetype, result.HeroArchetype);
+        Assert.Equal(setup, stored.StorySetup);
+        Assert.Equal(setup, result.StorySetup);
     }
 
     [Theory]
@@ -55,10 +70,11 @@ public class StorySessionInputValidationTests
     [InlineData("genre", "Genre must be 500 characters or fewer.")]
     [InlineData("archetype", "Hero archetype must be 1000 characters or fewer.")]
     [InlineData("name", "Hero name must be 100 characters or fewer.")]
+    [InlineData("setup", "Story setup must be 4000 characters or fewer.")]
     public async Task CreateSessionAsync_RejectsOversizedFieldWithoutPersisting(string field, string expectedMessage)
     {
         await using var dbContext = CreateDbContext();
-        var service = new StoryService(dbContext);
+        var service = CreateStoryService(dbContext);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CreateSessionAsync(Guid.NewGuid(), CreateRequestWithOversized(field), CancellationToken.None));
@@ -73,7 +89,7 @@ public class StorySessionInputValidationTests
     public async Task CreateSessionAsync_RejectsBlankRequiredFields(string blank, string expectedMessage)
     {
         await using var dbContext = CreateDbContext();
-        var service = new StoryService(dbContext);
+        var service = CreateStoryService(dbContext);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CreateSessionAsync(Guid.NewGuid(), new CreateSessionRequest(blank, "Superhero", "Guardian", "Ari"), CancellationToken.None));
@@ -86,7 +102,7 @@ public class StorySessionInputValidationTests
     public async Task CreateSessionAsync_ReportsEveryInvalidFieldInOneMessage()
     {
         await using var dbContext = CreateDbContext();
-        var service = new StoryService(dbContext);
+        var service = CreateStoryService(dbContext);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CreateSessionAsync(Guid.NewGuid(), new CreateSessionRequest(" ", MaxGenre + "g", "Guardian", " "), CancellationToken.None));
@@ -98,7 +114,7 @@ public class StorySessionInputValidationTests
     public async Task PatchSessionAsync_AcceptsExactBoundariesAndLeavesNullFieldsUnchanged()
     {
         await using var dbContext = CreateDbContext();
-        var service = new StoryService(dbContext);
+        var service = CreateStoryService(dbContext);
         var session = await SeedSessionAsync(dbContext);
 
         var result = await service.PatchSessionAsync(session.UserId, session.Id, new PatchSessionRequest(null, MaxGenre, MaxArchetype, null, null), CancellationToken.None);
@@ -119,7 +135,7 @@ public class StorySessionInputValidationTests
     public async Task PatchSessionAsync_RejectsOversizedFieldWithoutChangingSession(string field, string expectedMessage)
     {
         await using var dbContext = CreateDbContext();
-        var service = new StoryService(dbContext);
+        var service = CreateStoryService(dbContext);
         var session = await SeedSessionAsync(dbContext);
         var request = new PatchSessionRequest(
             field == "title" ? MaxTitle + "t" : null,
@@ -144,7 +160,7 @@ public class StorySessionInputValidationTests
     public async Task PatchSessionAsync_RejectsBlankValues(string blank)
     {
         await using var dbContext = CreateDbContext();
-        var service = new StoryService(dbContext);
+        var service = CreateStoryService(dbContext);
         var session = await SeedSessionAsync(dbContext);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -160,7 +176,7 @@ public class StorySessionInputValidationTests
     {
         await using var dbContext = CreateDbContext();
         var sceneService = new Mock<ISceneService>(MockBehavior.Strict);
-        var service = new StoryCreationService(new StoryService(dbContext), sceneService.Object, dbContext);
+        var service = new StoryCreationService(CreateStoryService(dbContext), sceneService.Object, dbContext);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CreateAsync(Guid.NewGuid(), CreateRequestWithOversized("genre"), CancellationToken.None));
@@ -169,12 +185,21 @@ public class StorySessionInputValidationTests
         Assert.Empty(dbContext.StorySessions.IgnoreQueryFilters());
     }
 
+    private static StoryService CreateStoryService(AppDbContext dbContext)
+    {
+        var moderation = new Mock<IModerationService>();
+        moderation.Setup(service => service.ModerateSetupAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((HeroStory.Core.Enums.ModerationStatus.Approved, null as string));
+        return new StoryService(dbContext, moderation.Object);
+    }
+
     private static CreateSessionRequest CreateRequestWithOversized(string field)
         => new(
             field == "title" ? MaxTitle + "t" : "Origin",
             field == "genre" ? MaxGenre + "g" : "Superhero",
             field == "archetype" ? MaxArchetype + "a" : "Guardian",
-            field == "name" ? MaxHeroName + "n" : "Ari");
+            field == "name" ? MaxHeroName + "n" : "Ari",
+            StorySetup: field == "setup" ? new string('s', StorySessionFieldLimits.StorySetupMaxLength + 1) : null);
 
     private static async Task<StorySession> SeedSessionAsync(AppDbContext dbContext)
     {

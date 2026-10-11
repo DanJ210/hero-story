@@ -473,6 +473,10 @@ namespace HeroStory.Infrastructure.Data.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<string>("StorySetup")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)

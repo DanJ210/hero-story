@@ -1,4 +1,5 @@
 using HeroStory.Core.Enums;
+using HeroStory.Core.Entities;
 using HeroStory.Infrastructure.Clients;
 using Microsoft.Extensions.Configuration;
 
@@ -45,9 +46,15 @@ public class ModerationService : IModerationService
             StringComparer.OrdinalIgnoreCase);
     }
 
-    public async Task<(ModerationStatus Status, string? Detail)> ModerateInputAsync(string input, CancellationToken cancellationToken)
+    public Task<(ModerationStatus Status, string? Detail)> ModerateInputAsync(string input, CancellationToken cancellationToken)
+        => ModerateInputCoreAsync(input, MaximumInputCharacters, cancellationToken);
+
+    public Task<(ModerationStatus Status, string? Detail)> ModerateSetupAsync(string input, CancellationToken cancellationToken)
+        => ModerateInputCoreAsync(input, StorySessionFieldLimits.MaximumSetupModerationCharacters, cancellationToken);
+
+    private async Task<(ModerationStatus Status, string? Detail)> ModerateInputCoreAsync(string input, int maximumCharacters, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(input) || input.Length > MaximumInputCharacters)
+        if (string.IsNullOrWhiteSpace(input) || input.Length > maximumCharacters)
         {
             return (ModerationStatus.Rejected, "Input length is invalid.");
         }

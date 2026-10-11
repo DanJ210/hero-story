@@ -27,12 +27,15 @@ internal sealed class RecordingOpenAiHandler : HttpMessageHandler
     public RecordingOpenAiHandler(Func<Task>? onRequest = null) => _onRequest = onRequest;
 
     public List<string> RequestedPaths { get; } = [];
+    public List<string> ImagePrompts { get; } = [];
 
     public bool ImageCallMade => RequestedPaths.Any(path => path.Contains("/images/", StringComparison.Ordinal));
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         RequestedPaths.Add(request.RequestUri!.AbsolutePath);
+        using var requestJson = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+        ImagePrompts.Add(requestJson.RootElement.GetProperty("prompt").GetString()!);
         if (_onRequest is not null)
         {
             await _onRequest();

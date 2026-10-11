@@ -13,6 +13,7 @@ public class StorySessionConfiguration : IEntityTypeConfiguration<StorySession>
         builder.Property(x => x.Genre).HasMaxLength(StorySessionFieldLimits.GenreMaxLength).IsRequired();
         builder.Property(x => x.HeroArchetype).HasMaxLength(StorySessionFieldLimits.HeroArchetypeMaxLength).IsRequired();
         builder.Property(x => x.HeroName).HasMaxLength(StorySessionFieldLimits.HeroNameMaxLength).IsRequired();
+        builder.Property(x => x.StorySetup).HasMaxLength(StorySessionFieldLimits.StorySetupMaxLength);
         builder.Property(x => x.ContinuitySummary).IsRequired();
         builder.Property(x => x.CreatedAt).IsRequired();
         builder.Property(x => x.UpdatedAt).IsRequired();

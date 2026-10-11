@@ -51,7 +51,7 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
    - [x] Store opaque portrait ID and consent timestamp on opted-in manual artwork jobs.
    - [x] Reject likeness requests without an active consented portrait.
    - [x] Add an explicit per-scene likeness opt-in control, defaulting off.
-   - [x] Resolve private portraits in the worker and send them directly as multipart input for manual image edits.
+   - [x] Resolve private portraits in the worker and send them directly in a JSON image-edit request using a data URL.
    - [x] Add provider-reference expiry/provenance policy and complete the manual likeness evaluation coverage.
 - [x] Phase 3: optional automatic likeness artwork, disable/replace flows, deletion semantics, and end-to-end policy tests.
    - [x] Slice 1: persist a default-off session likeness opt-in and attach active portrait provenance to automatic opening, major, climax, and conclusion artwork jobs.
@@ -89,13 +89,14 @@ The agreed interaction contract is in [story-experience.md](story-experience.md#
 
 ### User-authored setup and scene-prompt fidelity
 
-The retained-setup contract is defined in [story-experience.md](story-experience.md#persistent-user-authored-setup). Session title, genre, hero archetype, and hero name are persisted and included in text-generation prompts. Dedicated premise, appearance, equipment, and other richer setup capture are not implemented. Complete artwork-prompt alignment and validation before claiming that the user's descriptions guide both narrative and images; the interrupted worker-prompt edit does not establish delivery or visual quality.
+The retained-setup contract is defined in [story-experience.md](story-experience.md#persistent-user-authored-setup). The bounded setup and scene-prompt fidelity slice is complete: the creation form captures optional original setup, the API and persistence retain it, and narrative and artwork prompts use it alongside accepted scene state. The text and artwork paths have integration/unit coverage for persistence, moderation, prompt bounds, current-scene precedence, and exclusion of attempted actions from artwork prompts. The migration and model snapshot are present, but the migration has not been applied to a live database. No live image-provider evaluation has run; this verifies technical prompt assembly, not visual output quality.
 
-- [ ] Define how the setup form captures richer user-authored descriptions, preserving original input separately from generated state without requiring a separate field for every detail.
-- [ ] Carry retained setup and accepted active-path changes through opening, continuation, revision, and artwork prompts; remove unsupported generic genre assumptions.
-- [ ] Keep original setup available across compaction while preserving durable user-driven consequences and excluding superseded outcomes.
-- [ ] Complete and test bounded scene-artwork prompts for both ordinary and consented portrait-reference requests, including genre, hero description, accepted scene details, and retained final instructions.
-- [ ] Verify setup persistence and prompt fidelity across the request path, and evaluate generated images separately for scene adherence rather than treating prompt-content tests as proof of visual quality.
+- [x] Capture optional richer user-authored setup in the creation form and preserve the original separately from generated state, with length feedback and no client-side truncation.
+- [x] Carry retained setup and accepted active-path changes through opening, continuation, revision, conclusion, and artwork prompts; use genre-neutral instructions rather than unsupported generic genre assumptions.
+- [x] Keep original setup available across continuity compaction while preserving durable user-driven consequences and excluding superseded outcomes.
+- [x] Complete and test bounded scene-artwork prompts for ordinary and consented portrait-reference requests, including genre, hero description, accepted scene details, data-boundary handling, and intact final instructions.
+- [x] Verify setup persistence and moderation behavior, API patch locking, and narrative/artwork prompt fidelity across the request paths.
+- [ ] Evaluate generated images separately for scene adherence and visual quality; prompt-content tests do not establish image quality.
 
 ### Proposed likeness-quality workflow and documentation alignment
 

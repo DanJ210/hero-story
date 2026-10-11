@@ -6,7 +6,8 @@ const atLimit = () => ({
   title: "t".repeat(storySetupLimits.title),
   genre: "g".repeat(storySetupLimits.genre),
   heroArchetype: "a".repeat(storySetupLimits.heroArchetype),
-  heroName: "n".repeat(storySetupLimits.heroName)
+  heroName: "n".repeat(storySetupLimits.heroName),
+  storySetup: "s".repeat(storySetupLimits.storySetup)
 });
 
 const axiosErrorWith = (data: unknown) => new AxiosError("Bad request", "ERR_BAD_REQUEST", undefined, undefined, {
@@ -19,7 +20,7 @@ const axiosErrorWith = (data: unknown) => new AxiosError("Bad request", "ERR_BAD
 
 describe("validateStorySetup", () => {
   it("matches the API limits", () => {
-    expect(storySetupLimits).toEqual({ title: 200, genre: 500, heroArchetype: 1000, heroName: 100 });
+    expect(storySetupLimits).toEqual({ title: 200, genre: 500, heroArchetype: 1000, heroName: 100, storySetup: 4000 });
   });
 
   it("accepts every field at its exact limit", () => {
@@ -30,10 +31,12 @@ describe("validateStorySetup", () => {
     const values = atLimit();
     values.genre += "g";
     values.heroArchetype += "a";
+    values.storySetup += "s";
 
     expect(validateStorySetup(values)).toEqual({
       genre: "Genre must be 500 characters or fewer.",
-      heroArchetype: "Hero archetype must be 1000 characters or fewer."
+      heroArchetype: "Hero archetype must be 1000 characters or fewer.",
+      storySetup: "Story setup must be 4000 characters or fewer."
     });
   });
 
@@ -42,6 +45,14 @@ describe("validateStorySetup", () => {
       title: "Title is required.",
       genre: "Genre is required."
     });
+  });
+
+  it("accepts absent, empty, and whitespace-only optional setup without changing text", () => {
+    for (const storySetup of [undefined, "", "  \r\n "]) {
+      const values = { ...atLimit(), storySetup };
+      expect(validateStorySetup(values)).toEqual({});
+      expect(values.storySetup).toBe(storySetup);
+    }
   });
 });
 

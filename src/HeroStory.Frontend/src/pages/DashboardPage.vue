@@ -15,7 +15,7 @@
           rows="3"
           :aria-describedby="`story-${field.key}-help story-${field.key}-count${fieldErrors[field.key] ? ` story-${field.key}-error` : ''}`"
           :aria-invalid="fieldErrors[field.key] ? 'true' : undefined"
-          required
+          :required="field.key !== 'storySetup'"
         ></textarea>
         <input
           v-else
@@ -71,14 +71,15 @@ const title = import.meta.env.VITE_APP_TITLE ?? "Hero Story";
 const router = useRouter();
 const authStore = useAuthStore();
 const sessionStore = useSessionStore();
-const form = reactive({ title: "", genre: "", heroArchetype: "", heroName: "", likenessEnabled: false });
+const form = reactive({ title: "", genre: "", heroArchetype: "", heroName: "", storySetup: "", likenessEnabled: false });
 const creationError = ref("");
 const fieldErrors = ref<StorySetupErrors>({});
 const setupFields: { key: StorySetupField; label: string; help: string; multiline: boolean }[] = [
   { key: "title", label: storySetupLabels.title, help: "The name of this story.", multiline: false },
   { key: "genre", label: storySetupLabels.genre, help: "Describe the genre, tone, or setting style. A short phrase or a few sentences.", multiline: true },
   { key: "heroArchetype", label: storySetupLabels.heroArchetype, help: "Describe the kind of hero: role, powers, temperament, or background.", multiline: true },
-  { key: "heroName", label: storySetupLabels.heroName, help: "What your hero is called in the story.", multiline: false }
+  { key: "heroName", label: storySetupLabels.heroName, help: "What your hero is called in the story.", multiline: false },
+  { key: "storySetup", label: storySetupLabels.storySetup, help: "Optional: premise, setting, tone, appearance, clothing, equipment, background, abilities, and constraints. Retained throughout the episode and locked when the story begins.", multiline: true }
 ];
 const portraitFile = ref<File | null>(null);
 const portraitConsent = ref(false);

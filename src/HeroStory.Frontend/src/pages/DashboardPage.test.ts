@@ -32,11 +32,13 @@ describe("DashboardPage story setup", () => {
   it("labels every setup field and uses textareas for genre and hero archetype", async () => {
     const wrapper = await mountPage();
 
-    for (const key of ["title", "genre", "heroArchetype", "heroName"]) {
+    for (const key of ["title", "genre", "heroArchetype", "heroName", "storySetup"]) {
       expect(wrapper.find(`label[for="story-${key}"]`).exists()).toBe(true);
     }
     expect(wrapper.find("#story-genre").element.tagName).toBe("TEXTAREA");
     expect(wrapper.find("#story-heroArchetype").element.tagName).toBe("TEXTAREA");
+    expect(wrapper.find("#story-storySetup").element.tagName).toBe("TEXTAREA");
+    expect(wrapper.find("#story-storySetup").attributes("required")).toBeUndefined();
     expect(wrapper.find("#story-genre").attributes("maxlength")).toBeUndefined();
   });
 
@@ -61,7 +63,8 @@ describe("DashboardPage story setup", () => {
       title: "t".repeat(storySetupLimits.title),
       genre: "g".repeat(storySetupLimits.genre),
       heroArchetype: "a".repeat(storySetupLimits.heroArchetype),
-      heroName: "n".repeat(storySetupLimits.heroName)
+      heroName: "n".repeat(storySetupLimits.heroName),
+      storySetup: "  Undersea research station.\nNo magic. ".padEnd(storySetupLimits.storySetup, "s")
     };
     await fill(wrapper, values);
 
@@ -70,5 +73,18 @@ describe("DashboardPage story setup", () => {
 
     expect(sessionApi.createSession).toHaveBeenCalledWith(expect.objectContaining(values));
     expect(push).toHaveBeenCalledWith("/sessions/session-1");
+  });
+
+  it("shows a clear setup length error and never truncates the user's text", async () => {
+    const wrapper = await mountPage();
+    const storySetup = "s".repeat(storySetupLimits.storySetup + 1);
+    await fill(wrapper, { title: "Origin", genre: "Science fiction", heroArchetype: "Diver", heroName: "Ari", storySetup });
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+
+    expect(sessionApi.createSession).not.toHaveBeenCalled();
+    expect(wrapper.find("#story-storySetup-count").text()).toBe("4001 / 4000");
+    expect(wrapper.find("#story-storySetup-error").text()).toBe("Story setup must be 4000 characters or fewer.");
+    expect((wrapper.find("#story-storySetup").element as HTMLTextAreaElement).value).toBe(storySetup);
   });
 });

@@ -9,10 +9,12 @@ namespace HeroStory.Api.Services;
 public class StoryService : IStoryService
 {
     private readonly AppDbContext _dbContext;
+    private readonly IModerationService _moderationService;
 
-    public StoryService(AppDbContext dbContext)
+    public StoryService(AppDbContext dbContext, IModerationService moderationService)
     {
         _dbContext = dbContext;
+        _moderationService = moderationService;
     }
 
     public async Task<IReadOnlyList<SessionListDto>> GetSessionsAsync(Guid userId, CancellationToken cancellationToken)
@@ -25,7 +27,7 @@ public class StoryService : IStoryService
     public async Task<SessionDto?> GetSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
         => await _dbContext.StorySessions
             .Where(x => x.UserId == userId && x.Id == sessionId)
-            .Select(x => new SessionDto(x.Id, x.Title, x.Genre, x.HeroArchetype, x.HeroName, x.Status, x.ModerationFailureCount, x.CreatedAt, x.UpdatedAt, x.LikenessEnabled))
+            .Select(x => new SessionDto(x.Id, x.Title, x.Genre, x.HeroArchetype, x.HeroName, x.Status, x.ModerationFailureCount, x.CreatedAt, x.UpdatedAt, x.LikenessEnabled, x.StorySetup))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<StoryWorkspaceDto?> GetWorkspaceAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
@@ -41,7 +43,7 @@ public class StoryService : IStoryService
             return null;
         }
 
-        var sessionDto = new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt, session.LikenessEnabled);
+        var sessionDto = ToDto(session);
         var turns = session.Scenes.Where(scene => scene.IsActive).OrderBy(scene => scene.SequenceNumber).Select(SceneDtoMapper.ToDto).ToArray();
         return new StoryWorkspaceDto(sessionDto, turns);
     }
@@ -57,6 +59,7 @@ public class StoryService : IStoryService
             Genre = request.Genre,
             HeroArchetype = request.HeroArchetype,
             HeroName = request.HeroName,
+            StorySetup = request.StorySetup,
             LikenessEnabled = request.LikenessEnabled,
             Status = SessionStatus.Active,
             CreatedAt = DateTime.UtcNow,
@@ -65,7 +68,7 @@ public class StoryService : IStoryService
 
         _dbContext.StorySessions.Add(session);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt, session.LikenessEnabled);
+        return ToDto(session);
     }
 
     public async Task<SessionDto?> PatchSessionAsync(Guid userId, Guid sessionId, PatchSessionRequest request, CancellationToken cancellationToken)
@@ -75,6 +78,24 @@ public class StoryService : IStoryService
         if (session is null)
         {
             return null;
+        }
+
+        if (request.StorySetup is not null && request.StorySetup != session.StorySetup)
+        {
+            if (await _dbContext.Scenes.AnyAsync(scene => scene.SessionId == sessionId, cancellationToken))
+            {
+                throw new InvalidOperationException("Story setup cannot be changed after the episode begins.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.StorySetup))
+            {
+                var moderation = await _moderationService.ModerateSetupAsync(request.StorySetup, cancellationToken);
+                if (moderation.Status != ModerationStatus.Approved)
+                {
+                    throw new InvalidOperationException(moderation.Detail ?? "Story setup was rejected by moderation.");
+                }
+            }
+            session.StorySetup = request.StorySetup;
         }
 
         session.Title = request.Title ?? session.Title;
@@ -88,7 +109,7 @@ public class StoryService : IStoryService
 
         session.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt, session.LikenessEnabled);
+        return ToDto(session);
     }
 
     public async Task<SessionDto?> TransitionStatusAsync(Guid userId, Guid sessionId, SessionStatus status, CancellationToken cancellationToken)
@@ -112,7 +133,7 @@ public class StoryService : IStoryService
         session.Status = status;
         session.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return new SessionDto(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt, session.LikenessEnabled);
+        return ToDto(session);
     }
 
     public async Task<bool> DeleteSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
@@ -128,4 +149,7 @@ public class StoryService : IStoryService
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    private static SessionDto ToDto(StorySession session)
+        => new(session.Id, session.Title, session.Genre, session.HeroArchetype, session.HeroName, session.Status, session.ModerationFailureCount, session.CreatedAt, session.UpdatedAt, session.LikenessEnabled, session.StorySetup);
 }

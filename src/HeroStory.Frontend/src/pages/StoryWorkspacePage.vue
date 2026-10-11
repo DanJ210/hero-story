@@ -87,6 +87,10 @@
             <span>Episode one</span>
             <strong>{{ workspaceStore.workspace.session.title }}</strong>
           </section>
+          <details v-if="workspaceStore.workspace.session.storySetup" class="story-setup-foundation">
+            <summary>Original story setup</summary>
+            <p class="narrative">{{ workspaceStore.workspace.session.storySetup }}</p>
+          </details>
 
           <template v-for="turn in workspaceStore.workspace.turns" :key="turn.id">
             <div v-if="turn.sequenceNumber > 1" class="hero-action">

@@ -5,27 +5,29 @@ export const storySetupLimits = {
   title: 200,
   genre: 500,
   heroArchetype: 1000,
-  heroName: 100
+  heroName: 100,
+  storySetup: 4000
 } as const;
 
 export type StorySetupField = keyof typeof storySetupLimits;
-export type StorySetupValues = Record<StorySetupField, string>;
+export type StorySetupValues = Record<Exclude<StorySetupField, "storySetup">, string> & { storySetup?: string };
 export type StorySetupErrors = Partial<Record<StorySetupField, string>>;
 
 export const storySetupLabels: Record<StorySetupField, string> = {
   title: "Title",
   genre: "Genre",
   heroArchetype: "Hero archetype",
-  heroName: "Hero name"
+  heroName: "Hero name",
+  storySetup: "Story setup"
 };
 
 /** Returns a readable error per invalid field. Text is never trimmed or truncated. */
 export const validateStorySetup = (values: StorySetupValues): StorySetupErrors => {
   const errors: StorySetupErrors = {};
   for (const field of Object.keys(storySetupLimits) as StorySetupField[]) {
-    const value = values[field];
+    const value = values[field] ?? "";
     const max = storySetupLimits[field];
-    if (value.trim().length === 0) errors[field] = `${storySetupLabels[field]} is required.`;
+    if (field !== "storySetup" && value.trim().length === 0) errors[field] = `${storySetupLabels[field]} is required.`;
     else if (value.length > max) errors[field] = `${storySetupLabels[field]} must be ${max} characters or fewer.`;
   }
   return errors;

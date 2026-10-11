@@ -16,6 +16,7 @@ public static class StorySessionInputValidator
         ValidateRequired(request.Genre, "Genre", StorySessionFieldLimits.GenreMaxLength, errors);
         ValidateRequired(request.HeroArchetype, "Hero archetype", StorySessionFieldLimits.HeroArchetypeMaxLength, errors);
         ValidateRequired(request.HeroName, "Hero name", StorySessionFieldLimits.HeroNameMaxLength, errors);
+        ValidateSetup(request.StorySetup, errors);
         ThrowIfInvalid(errors);
     }
 
@@ -26,6 +27,7 @@ public static class StorySessionInputValidator
         ValidateOptional(request.Genre, "Genre", StorySessionFieldLimits.GenreMaxLength, errors);
         ValidateOptional(request.HeroArchetype, "Hero archetype", StorySessionFieldLimits.HeroArchetypeMaxLength, errors);
         ValidateOptional(request.HeroName, "Hero name", StorySessionFieldLimits.HeroNameMaxLength, errors);
+        ValidateSetup(request.StorySetup, errors);
         ThrowIfInvalid(errors);
     }
 
@@ -55,6 +57,14 @@ public static class StorySessionInputValidator
         }
 
         ValidateLength(value, fieldName, maxLength, errors);
+    }
+
+    private static void ValidateSetup(string? value, List<string> errors)
+    {
+        if (value is not null)
+        {
+            ValidateLength(value, "Story setup", StorySessionFieldLimits.StorySetupMaxLength, errors);
+        }
     }
 
     private static void ValidateLength(string value, string fieldName, int maxLength, List<string> errors)

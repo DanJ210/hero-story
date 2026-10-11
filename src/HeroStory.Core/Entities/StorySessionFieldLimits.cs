@@ -10,4 +10,7 @@ public static class StorySessionFieldLimits
     public const int GenreMaxLength = 500;
     public const int HeroArchetypeMaxLength = 1_000;
     public const int HeroNameMaxLength = 100;
+    public const int StorySetupMaxLength = 4_000;
+    public const int MaximumSetupModerationCharacters =
+        TitleMaxLength + GenreMaxLength + HeroArchetypeMaxLength + HeroNameMaxLength + StorySetupMaxLength + 4;
 }

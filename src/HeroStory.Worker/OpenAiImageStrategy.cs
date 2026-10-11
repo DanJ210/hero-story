@@ -42,6 +42,12 @@ public class OpenAiImageStrategy : IImageGeneratorStrategy
                 .SingleAsync(x => x.Id == job.SceneId, cancellationToken);
             ownerUserId = scene.Session.UserId;
 
+            if (!scene.IsActive)
+            {
+                await CompleteSupersededJobAsync(job, cancellationToken);
+                return;
+            }
+
             var imagePrompt = BuildImagePrompt(scene, scene.Session, hasIdentityReference: job.PortraitId is not null);
             byte[] imageBytes;
             if (job.PortraitId is not null)
@@ -208,10 +214,12 @@ public class OpenAiImageStrategy : IImageGeneratorStrategy
     internal const int GenreBudget = StorySessionFieldLimits.GenreMaxLength;
     internal const int HeroArchetypeBudget = StorySessionFieldLimits.HeroArchetypeMaxLength;
     internal const int HeroNameBudget = StorySessionFieldLimits.HeroNameMaxLength;
+    internal const int StorySetupBudget = StorySessionFieldLimits.StorySetupMaxLength;
     internal const int LocationBudget = 300;
     internal const int SceneSummaryBudget = 2_000;
     internal const int NarrativeBudget = 2_000;
     internal const int ConflictBudget = 500;
+    internal const int StateBudget = 2_000;
 
     private const string PromptIntroduction = """
         Create one illustration of a single accepted moment from an interactive story.
@@ -221,10 +229,11 @@ public class OpenAiImageStrategy : IImageGeneratorStrategy
 
     private const string DepictionRules = """
         Depiction rules:
-        - Depict the accepted scene summary and narrative as the central moment, with the hero as the central figure.
+        - Select one concrete visible moment from the accepted scene summary and narrative, with the hero as the central figure. Do not depict a montage, raw attempted actions, private thoughts, or optional suggestions.
         - Match the visual style, era, technology, and tone to the stated genre and hero archetype. Do not add fantasy, superhero, or other genre tropes that the story data does not support.
         - Prefer the specific setting, equipment, costume, creatures, and other characters described in the accepted scene over generic imagery.
-        - Treat the ongoing conflict as context only. Do not invent an action, attempt, outcome, or resolution that the accepted scene does not describe.
+        - Original setup is the creative foundation, not current state. Accepted scene details and state override obsolete initial details: do not restore lost equipment or return to a former location. Keep the underlying character concept and genre.
+        - Treat the ongoing conflict and state as context only. Depict observable events, not internal thoughts or unobserved facts. Do not invent an action, attempt, outcome, or resolution that the accepted scene does not describe.
         - Use cinematic composition, coherent lighting, and a detailed environment consistent with the scene.
         - Do not render any text, captions, names, labels, logos, speech bubbles, signatures, or watermarks.
         """;
@@ -247,9 +256,11 @@ public class OpenAiImageStrategy : IImageGeneratorStrategy
         AppendField(storyData, "Genre", session.Genre, GenreBudget);
         AppendField(storyData, "Hero name", session.HeroName, HeroNameBudget);
         AppendField(storyData, "Hero archetype", session.HeroArchetype, HeroArchetypeBudget);
+        AppendField(storyData, "Original story setup (initial foundation)", session.StorySetup, StorySetupBudget);
         AppendField(storyData, "Location", scene.Location, LocationBudget);
         AppendField(storyData, "Accepted scene summary", scene.SceneSummary, SceneSummaryBudget);
         AppendField(storyData, "Accepted scene narrative", scene.NarrativeText, NarrativeBudget);
+        AppendField(storyData, "Accepted scene state (context only)", scene.StoryStateJson, StateBudget);
         AppendField(storyData, "Ongoing conflict (context only)", scene.ActiveConflict, ConflictBudget);
 
         var prompt = new System.Text.StringBuilder()
@@ -261,6 +272,10 @@ public class OpenAiImageStrategy : IImageGeneratorStrategy
             prompt.Append("\n\n").Append(IdentityReferenceRules);
         }
 
+        if (prompt.Length > OpenAiClient.MaxImagePromptLength)
+        {
+            throw new InvalidOperationException("Scene artwork context exceeds the image prompt budget.");
+        }
         return prompt.ToString();
     }
 
@@ -293,6 +308,10 @@ public class OpenAiImageStrategy : IImageGeneratorStrategy
         }
 
         var excerpt = normalized[..(budget - 1)];
+        if (char.IsHighSurrogate(excerpt[^1]))
+        {
+            excerpt = excerpt[..^1];
+        }
         var lastSpace = excerpt.LastIndexOf(' ');
         if (lastSpace >= budget / 2)
         {
