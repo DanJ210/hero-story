@@ -42,6 +42,7 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
 - [x] Include bounded older active-path continuity summaries and state markers in generation prompts.
 - [x] Compact older active-path scenes into a persisted multi-turn continuity summary while retaining a recent generation-context window.
 - [x] Retry failed artwork jobs through bounded queue redelivery without regenerating completed jobs.
+- [x] Expand story setup genre (500) and hero archetype (1000) storage with matching create/patch API validation and labeled setup-form length feedback.
 
 ### Hero-likeness phases
 
@@ -50,7 +51,7 @@ Consent-driven hero-likeness personalization is complete. Phases 1 and 2 establi
    - [x] Store opaque portrait ID and consent timestamp on opted-in manual artwork jobs.
    - [x] Reject likeness requests without an active consented portrait.
    - [x] Add an explicit per-scene likeness opt-in control, defaulting off.
-   - [x] Resolve private portraits in the worker and send them directly as multipart input for manual image edits.
+   - [x] Resolve private portraits in the worker and send them directly in a JSON image-edit request using a data URL.
    - [x] Add provider-reference expiry/provenance policy and complete the manual likeness evaluation coverage.
 - [x] Phase 3: optional automatic likeness artwork, disable/replace flows, deletion semantics, and end-to-end policy tests.
    - [x] Slice 1: persist a default-off session likeness opt-in and attach active portrait provenance to automatic opening, major, climax, and conclusion artwork jobs.
@@ -85,6 +86,17 @@ The agreed interaction contract is in [story-experience.md](story-experience.md#
 - [ ] Align composer guidance, contribution display, and revision editing with dialogue and asterisk narration.
 - [ ] Replace the fixed per-turn word minimum with adaptive pacing in both generation instructions and response validation; choose bounded length limits without padding brief conversations.
 - [ ] Validate the frontend-to-API-to-generation-to-persistence flow for dialogue-only, narration-only, mixed contributions, thoughts, selected suggestions, and revision. Verify that world consequences do not take over the hero's decisions or expose private thoughts, and that concise responses retain valid structured state.
+
+### User-authored setup and scene-prompt fidelity
+
+The retained-setup contract is defined in [story-experience.md](story-experience.md#persistent-user-authored-setup). The bounded setup and scene-prompt fidelity slice is complete: the creation form captures optional original setup, the API and persistence retain it, and narrative and artwork prompts use it alongside accepted scene state. The text and artwork paths have integration/unit coverage for persistence, moderation, prompt bounds, current-scene precedence, and exclusion of attempted actions from artwork prompts. The migration and model snapshot are present, but the migration has not been applied to a live database. No live image-provider evaluation has run; this verifies technical prompt assembly, not visual output quality.
+
+- [x] Capture optional richer user-authored setup in the creation form and preserve the original separately from generated state, with length feedback and no client-side truncation.
+- [x] Carry retained setup and accepted active-path changes through opening, continuation, revision, conclusion, and artwork prompts; use genre-neutral instructions rather than unsupported generic genre assumptions.
+- [x] Keep original setup available across continuity compaction while preserving durable user-driven consequences and excluding superseded outcomes.
+- [x] Complete and test bounded scene-artwork prompts for ordinary and consented portrait-reference requests, including genre, hero description, accepted scene details, data-boundary handling, and intact final instructions.
+- [x] Verify setup persistence and moderation behavior, API patch locking, and narrative/artwork prompt fidelity across the request paths.
+- [ ] Evaluate generated images separately for scene adherence and visual quality; prompt-content tests do not establish image quality.
 
 ### Proposed likeness-quality workflow and documentation alignment
 

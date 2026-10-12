@@ -5,6 +5,7 @@ using HeroStory.Api.DTOs.Session;
 using HeroStory.Core.Entities;
 using HeroStory.Core.Enums;
 using HeroStory.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -90,6 +91,121 @@ public class SessionEndpointTests
         Assert.Equal(SessionStatus.Active, verificationContext.StorySessions.Single(story => story.Id == session.Id).Status);
     }
 
+    [Fact]
+    public async Task CreateSession_RejectsOversizedFieldsWithReadableErrorAndPersistsNothing()
+    {
+        await using var fixture = new DevelopmentApiFixture();
+        using var client = await CreateAuthenticatedClientAsync(fixture);
+
+        var response = await client.PostAsJsonAsync("/api/sessions", new
+        {
+            title = "Origin",
+            genre = new string('g', StorySessionFieldLimits.GenreMaxLength + 1),
+            heroArchetype = new string('a', StorySessionFieldLimits.HeroArchetypeMaxLength + 1),
+            heroName = "Ari"
+        });
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "Genre must be 500 characters or fewer. Hero archetype must be 1000 characters or fewer.",
+            body.GetProperty("error").GetString());
+        using var scope = fixture.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Empty(dbContext.StorySessions.IgnoreQueryFilters());
+        Assert.Empty(dbContext.Scenes.IgnoreQueryFilters());
+    }
+
+    [Fact]
+    public async Task CreateSession_RejectsWhitespaceRequiredFieldAndPersistsNothing()
+    {
+        await using var fixture = new DevelopmentApiFixture();
+        using var client = await CreateAuthenticatedClientAsync(fixture);
+
+        var response = await client.PostAsJsonAsync("/api/sessions", new
+        {
+            title = "Origin",
+            genre = "   ",
+            heroArchetype = "Guardian",
+            heroName = "Ari"
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        using var scope = fixture.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Empty(dbContext.StorySessions.IgnoreQueryFilters());
+    }
+
+    [Fact]
+    public async Task PatchSession_RoundTripsMaximumLengthSetupText()
+    {
+        await using var fixture = new DevelopmentApiFixture();
+        using var client = await CreateAuthenticatedClientAsync(fixture);
+        var sessionId = await SeedOwnedSessionAsync(fixture);
+        var genre = string.Concat(Enumerable.Repeat("Mythic noir ", 50))[..StorySessionFieldLimits.GenreMaxLength];
+        var archetype = string.Concat(Enumerable.Repeat("Reluctant guardian ", 60))[..StorySessionFieldLimits.HeroArchetypeMaxLength];
+
+        var patchResponse = await client.PatchAsJsonAsync($"/api/sessions/{sessionId}", new { genre, heroArchetype = archetype });
+        var getResponse = await client.GetAsync($"/api/sessions/{sessionId}");
+        var fetched = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, patchResponse.StatusCode);
+        Assert.Equal(genre, fetched.GetProperty("genre").GetString());
+        Assert.Equal(archetype, fetched.GetProperty("heroArchetype").GetString());
+        Assert.Equal("Owned story", fetched.GetProperty("title").GetString());
+        using var scope = fixture.Services.CreateScope();
+        var stored = scope.ServiceProvider.GetRequiredService<AppDbContext>().StorySessions.Single(story => story.Id == sessionId);
+        Assert.Equal(genre, stored.Genre);
+        Assert.Equal(archetype, stored.HeroArchetype);
+    }
+
+    [Fact]
+    public async Task PatchSession_RejectsOversizedOrBlankFieldsWithoutChangingSession()
+    {
+        await using var fixture = new DevelopmentApiFixture();
+        using var client = await CreateAuthenticatedClientAsync(fixture);
+        var sessionId = await SeedOwnedSessionAsync(fixture);
+
+        var oversizedResponse = await client.PatchAsJsonAsync($"/api/sessions/{sessionId}", new
+        {
+            genre = new string('g', StorySessionFieldLimits.GenreMaxLength + 1),
+            heroName = new string('n', StorySessionFieldLimits.HeroNameMaxLength + 1)
+        });
+        var oversizedBody = await oversizedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var blankResponse = await client.PatchAsJsonAsync($"/api/sessions/{sessionId}", new { title = " " });
+        var blankBody = await blankResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, oversizedResponse.StatusCode);
+        Assert.Equal("Genre must be 500 characters or fewer. Hero name must be 100 characters or fewer.", oversizedBody.GetProperty("error").GetString());
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, blankResponse.StatusCode);
+        Assert.Equal("Title cannot be blank.", blankBody.GetProperty("error").GetString());
+        using var scope = fixture.Services.CreateScope();
+        var stored = scope.ServiceProvider.GetRequiredService<AppDbContext>().StorySessions.Single(story => story.Id == sessionId);
+        Assert.Equal("Owned story", stored.Title);
+        Assert.Equal("Superhero", stored.Genre);
+        Assert.Equal("Ari", stored.HeroName);
+    }
+
+    private static async Task<System.Net.Http.HttpClient> CreateAuthenticatedClientAsync(DevelopmentApiFixture fixture)
+    {
+        var client = fixture.CreateClient();
+        var loginResponse = await client.PostAsync("/api/auth/dev-login", null);
+        var tokens = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>();
+        Assert.NotNull(tokens);
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+        return client;
+    }
+
+    private static async Task<Guid> SeedOwnedSessionAsync(DevelopmentApiFixture fixture)
+    {
+        using var scope = fixture.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var user = dbContext.Users.Single(account => account.Email == "developer@hero-story.local");
+        var session = CreateSession(user.Id, "Owned story");
+        dbContext.Add(session);
+        await dbContext.SaveChangesAsync();
+        return session.Id;
+    }
     private static StorySession CreateSession(Guid userId, string title)
         => new()
         {

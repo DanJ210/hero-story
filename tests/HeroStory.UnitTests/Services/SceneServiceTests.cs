@@ -865,6 +865,7 @@ public class SceneServiceTests
     {
         var moderation = new Mock<IModerationService>();
         moderation.Setup(service => service.ModerateInputAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((ModerationStatus.Approved, null as string));
+        moderation.Setup(service => service.ModerateSetupAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((ModerationStatus.Approved, null as string));
         moderation.Setup(service => service.ModerateOutputAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((ModerationStatus.Approved, null as string, CreateNarrative()));
         return moderation;
     }

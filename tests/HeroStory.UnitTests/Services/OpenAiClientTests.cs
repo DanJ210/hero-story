@@ -7,6 +7,44 @@ namespace HeroStory.UnitTests.Services;
 
 public class OpenAiClientTests
 {
+    [Theory]
+    [InlineData(false, 16000)]
+    [InlineData(true, 16000)]
+    [InlineData(false, 16001)]
+    [InlineData(true, 16001)]
+    public async Task ImagePromptBoundary_IsIdenticalForBothPathsAndNeverSlicesInstructions(bool reference, int length)
+    {
+        var calls = 0;
+        string? sent = null;
+        var handler = new StubHttpMessageHandler(async request =>
+        {
+            calls++;
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            sent = body.RootElement.GetProperty("prompt").GetString();
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"data\":[{\"b64_json\":\"AQIDBA==\"}]}") };
+        });
+        var client = new OpenAiClient(new HttpClient(handler), new ConfigurationBuilder().Build());
+        var prompt = new string('p', length - 18) + "FINAL INSTRUCTIONS";
+        using var image = new MemoryStream([1, 2, 3]);
+        Task<byte[]> Generate() => reference
+            ? client.GenerateImageWithReferenceAsync(prompt, image, "image/jpeg", CancellationToken.None)
+            : client.GenerateImageAsync(prompt, CancellationToken.None);
+
+        if (length <= OpenAiClient.MaxImagePromptLength)
+        {
+            await Generate();
+            Assert.Equal(1, calls);
+            Assert.Equal(prompt, sent);
+            Assert.EndsWith("FINAL INSTRUCTIONS", sent);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(Generate);
+            Assert.Equal(0, calls);
+            Assert.Equal(0, image.Position);
+        }
+    }
+
     [Fact]
     public async Task GetFlaggedCategoriesAsync_UsesCurrentDefaultModerationModel()
     {
