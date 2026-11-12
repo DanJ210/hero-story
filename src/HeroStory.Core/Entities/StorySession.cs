@@ -10,6 +10,7 @@ public class StorySession
     public string Genre { get; set; } = string.Empty;
     public string HeroArchetype { get; set; } = string.Empty;
     public string HeroName { get; set; } = string.Empty;
+    public string? StorySetup { get; set; }
     public string ContinuitySummary { get; set; } = string.Empty;
     public int ContinuitySummaryThroughSequence { get; set; }
     public DateTime? ContinuitySummaryUpdatedAt { get; set; }

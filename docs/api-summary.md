@@ -2,7 +2,7 @@
 
 Base route prefix: `/api`
 
-The API is implemented in `src/HeroStory.Api` using controller-based endpoints and DTO contracts. This document describes the endpoints that exist today; outstanding work is tracked in [roadmap.md](roadmap.md).
+The API uses controller-based endpoints and DTO contracts in `src/HeroStory.Api`. Delivery status is tracked in [roadmap.md](roadmap.md).
 
 ## API documentation
 
@@ -56,13 +56,17 @@ All routes require authentication and are scoped to the calling user. Portrait b
 - `POST /api/sessions`
   - Creates a session and immediately generates its opening story turn from the supplied title, genre, hero archetype, and hero name.
   - Accepts an optional `likenessEnabled` flag, defaulting to `false`, that opts the session into automatic likeness artwork.
+  - Accepts optional `storySetup` (up to 4,000 UTF-16 code units), retained exactly as submitted. Omitted or `null` setup is stored as `null`; empty and whitespace-only strings are accepted unchanged.
+  - Requires non-blank `title` (max 200 characters), `genre` (max 500), `heroArchetype` (max 1000), and `heroName` (max 100). Accepted text is stored exactly as submitted, without trimming or truncation.
+  - Validates every field before persisting the session or starting moderation and opening generation. Blank or oversized required values return `400` with `{"error":"Genre must be 500 characters or fewer.","status":400}`, listing each invalid field in one message. Oversized setup returns `400` with `{"error":"Story setup must be 4000 characters or fewer.","status":400}`. Opening moderation checks the combined setup and required session descriptions under a 5,804-code-unit limit; rejected setup returns `400` and the incomplete session is removed. An omitted or `null` required field is rejected by model binding with a `400` validation problem response (`errors` keyed by field).
   - Returns `201 Created` with `{ session, openingScene }`.
   - Removes the newly created session if opening generation fails, preventing empty stories from remaining in the session list.
 - `GET /api/sessions/{id}`
-  - Gets single session.
+  - Gets the single session as a `SessionDto`, including `storySetup`.
   - Returns `404` if not found/user-mismatched.
 - `GET /api/sessions/{id}/workspace`
   - Returns the owned session and its ordered full turn DTOs for the reader workspace.
+  - The included session DTO carries `storySetup`.
   - Includes artwork status and signed image URLs without requiring one detail request per turn.
   - Returns `404` if not found or not owned by the authenticated user.
 - `POST /api/sessions/{id}/pause`
@@ -74,6 +78,10 @@ All routes require authentication and are scoped to the calling user. Portrait b
   - Requires the structured provider result to confirm `isEpisodeComplete`; the session then transitions to `completed`.
 - `PATCH /api/sessions/{id}`
   - Updates mutable session state.
+  - `PatchSessionRequest.storySetup` omitted or `null` leaves the original setup unchanged. A supplied value is accepted unchanged up to 4,000 UTF-16 code units; empty and whitespace-only values are valid. A changed nonblank setup is moderated before update.
+  - Setup cannot be changed after any scene is persisted, including a superseded scene. Re-submitting the exact stored value is accepted without changing it. A rejected change returns `400` with `{"error":"Story setup cannot be changed after the episode begins.","status":400}` and does not mutate the session; an oversized value returns the same 400 body used by creation.
+  - Provided `title`, `genre`, `heroArchetype`, and `heroName` values remain independently patchable and must be non-blank and within their creation limits; invalid input returns `400` with `{ error, status }` and nothing is changed.
+  - `SessionDto` includes optional `storySetup` in JSON as `storySetup`. The full session DTO is returned by creation (inside `session`), single-session and workspace reads, patch, pause, and resume; the session-list DTO remains unchanged.
 - `DELETE /api/sessions/{id}`
   - Soft-deletes/marks session removal.
 

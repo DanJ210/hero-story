@@ -1,4 +1,5 @@
 using HeroStory.Core.Enums;
+using HeroStory.Core.Entities;
 using HeroStory.Infrastructure.Clients;
 using Microsoft.Extensions.Configuration;
 
@@ -6,6 +7,8 @@ namespace HeroStory.Api.Services;
 
 public class ModerationService : IModerationService
 {
+    public const int MaximumInputCharacters = 2_000;
+
     private static readonly string[] InjectionIndicators = ["ignore previous", "system prompt", "developer message", "bypass"];
 
     // Superhero/sci-fi action is the product genre, so "violence" and non-threatening "harassment" are not blocking.
@@ -43,9 +46,15 @@ public class ModerationService : IModerationService
             StringComparer.OrdinalIgnoreCase);
     }
 
-    public async Task<(ModerationStatus Status, string? Detail)> ModerateInputAsync(string input, CancellationToken cancellationToken)
+    public Task<(ModerationStatus Status, string? Detail)> ModerateInputAsync(string input, CancellationToken cancellationToken)
+        => ModerateInputCoreAsync(input, MaximumInputCharacters, cancellationToken);
+
+    public Task<(ModerationStatus Status, string? Detail)> ModerateSetupAsync(string input, CancellationToken cancellationToken)
+        => ModerateInputCoreAsync(input, StorySessionFieldLimits.MaximumSetupModerationCharacters, cancellationToken);
+
+    private async Task<(ModerationStatus Status, string? Detail)> ModerateInputCoreAsync(string input, int maximumCharacters, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(input) || input.Length > 2_000)
+        if (string.IsNullOrWhiteSpace(input) || input.Length > maximumCharacters)
         {
             return (ModerationStatus.Rejected, "Input length is invalid.");
         }

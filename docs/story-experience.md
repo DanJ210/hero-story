@@ -97,6 +97,18 @@ Validation must allow the response pacing above while bounding output size, fiel
 
 ## Continuity and influence
 
+### Persistent user-authored setup
+
+The user's setup descriptions establish the creative foundation of the story, not just a disposable opening prompt. Session creation captures the genre, hero archetype and name, and an optional multiline story setup for details such as premise, setting, tone, background, appearance, clothing, equipment, abilities, and constraints. The setup is optional, may be empty or whitespace, and is retained exactly as submitted without trimming or truncation. The creation form explains its purpose, shows a live character count and readable validation without truncating input, and the reader workspace presents it as a collapsible original story setup.
+
+Preserve the original user-authored setup separately from generated summaries and evolving story state; prompt assembly and continuity compaction must not silently replace or discard it. Once an episode has begun, the original setup cannot be changed. Repeating the identical setup is harmless; a different setup is rejected, including when the episode contains only superseded scenes.
+
+Use that foundation for the opening and carry it forward into continuation, revision, and scene-artwork generation. A derived model prompt may organize the descriptions and add continuity, safety, pacing, and output instructions, but must not replace the user's creative direction with a generic fantasy or superhero template.
+
+Distinguish stable setup from evolving facts. Accepted events can change the hero's equipment, condition, relationships, or location; later prompts use those changes rather than repeatedly restoring the initial situation. User contributions drive how the story unfolds within the player contribution contract, and durable consequences enter the active-path state and continuity summary. A failed attempt is not stored as a successful outcome, and superseded events do not govern the active story.
+
+Artwork combines the retained setup with the accepted scene's visible details. It depicts what happened, including scene-specific costume, equipment, setting, and action, rather than raw attempted actions, private thoughts, or optional suggestions. Established scene changes take precedence over obsolete setup details without discarding the underlying genre or character concept.
+
 Each generation request should include:
 
 - stable hero and session configuration,
