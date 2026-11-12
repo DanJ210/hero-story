@@ -1,6 +1,7 @@
 using HeroStory.Api.DTOs.Session;
 using HeroStory.Api.Services;
 using HeroStory.Core.Entities;
+using HeroStory.Core.Enums;
 using HeroStory.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Moq;
@@ -126,6 +127,63 @@ public class StorySessionInputValidationTests
         Assert.Equal(MaxGenre, stored.Genre);
         Assert.Equal(MaxArchetype, stored.HeroArchetype);
         Assert.Equal("Ari", stored.HeroName);
+    }
+
+    [Fact]
+    public async Task PatchSessionAsync_ModeratesAllSuppliedFieldsAtAggregateLimit()
+    {
+        await using var dbContext = CreateDbContext();
+        var session = await SeedSessionAsync(dbContext);
+        var moderation = new Mock<IModerationService>(MockBehavior.Strict);
+        var setup = new string('s', StorySessionFieldLimits.StorySetupMaxLength);
+        var expected = string.Join('\n', MaxTitle, MaxGenre, MaxArchetype, MaxHeroName, setup);
+        moderation.Setup(service => service.ModerateSetupAsync(expected, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ModerationStatus.Approved, null as string));
+
+        await new StoryService(dbContext, moderation.Object).PatchSessionAsync(
+            session.UserId, session.Id, new PatchSessionRequest(MaxTitle, MaxGenre, MaxArchetype, MaxHeroName, null, setup), CancellationToken.None);
+
+        Assert.Equal(StorySessionFieldLimits.MaximumSetupModerationCharacters, expected.Length);
+        moderation.VerifyAll();
+        Assert.Equal(setup, session.StorySetup);
+        Assert.Equal(MaxTitle, session.Title);
+    }
+
+    [Fact]
+    public async Task PatchSessionAsync_RejectedModerationLeavesTrackedSessionUnchanged()
+    {
+        await using var dbContext = CreateDbContext();
+        var session = await SeedSessionAsync(dbContext);
+        var originalUpdatedAt = session.UpdatedAt;
+        var moderation = new Mock<IModerationService>(MockBehavior.Strict);
+        moderation.Setup(service => service.ModerateSetupAsync("New title\nNew setup", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ModerationStatus.Rejected, "Blocked"));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new StoryService(dbContext, moderation.Object).PatchSessionAsync(session.UserId, session.Id,
+                new PatchSessionRequest("New title", null, null, null, "Paused", "New setup"), CancellationToken.None));
+
+        Assert.Equal("Blocked", exception.Message);
+        Assert.Equal("Origin", session.Title);
+        Assert.Null(session.StorySetup);
+        Assert.Equal(SessionStatus.Active, session.Status);
+        Assert.Equal(originalUpdatedAt, session.UpdatedAt);
+        Assert.False(dbContext.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
+    public async Task PatchSessionAsync_SkipsModerationForBlankSetupAndStatusOnly()
+    {
+        await using var dbContext = CreateDbContext();
+        var session = await SeedSessionAsync(dbContext);
+        var moderation = new Mock<IModerationService>(MockBehavior.Strict);
+
+        await new StoryService(dbContext, moderation.Object).PatchSessionAsync(session.UserId, session.Id,
+            new PatchSessionRequest(null, null, null, null, "Paused", "  "), CancellationToken.None);
+
+        Assert.Equal("  ", session.StorySetup);
+        Assert.Equal(SessionStatus.Paused, session.Status);
+        moderation.VerifyNoOtherCalls();
     }
 
     [Theory]

@@ -80,24 +80,26 @@ public class StoryService : IStoryService
             return null;
         }
 
-        if (request.StorySetup is not null && request.StorySetup != session.StorySetup)
+        if (request.StorySetup is not null && request.StorySetup != session.StorySetup
+            && await _dbContext.Scenes.AnyAsync(scene => scene.SessionId == sessionId, cancellationToken))
         {
-            if (await _dbContext.Scenes.AnyAsync(scene => scene.SessionId == sessionId, cancellationToken))
-            {
-                throw new InvalidOperationException("Story setup cannot be changed after the episode begins.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.StorySetup))
-            {
-                var moderation = await _moderationService.ModerateSetupAsync(request.StorySetup, cancellationToken);
-                if (moderation.Status != ModerationStatus.Approved)
-                {
-                    throw new InvalidOperationException(moderation.Detail ?? "Story setup was rejected by moderation.");
-                }
-            }
-            session.StorySetup = request.StorySetup;
+            throw new InvalidOperationException("Story setup cannot be changed after the episode begins.");
         }
 
+        var moderationInput = string.Join('\n', new[]
+        {
+            request.Title, request.Genre, request.HeroArchetype, request.HeroName, request.StorySetup
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        if (moderationInput.Length > 0)
+        {
+            var moderation = await _moderationService.ModerateSetupAsync(moderationInput, cancellationToken);
+            if (moderation.Status != ModerationStatus.Approved)
+            {
+                throw new InvalidOperationException(moderation.Detail ?? "Story setup was rejected by moderation.");
+            }
+        }
+
+        session.StorySetup = request.StorySetup ?? session.StorySetup;
         session.Title = request.Title ?? session.Title;
         session.Genre = request.Genre ?? session.Genre;
         session.HeroArchetype = request.HeroArchetype ?? session.HeroArchetype;

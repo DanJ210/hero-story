@@ -139,7 +139,7 @@ public class SessionEndpointTests
     [Fact]
     public async Task PatchSession_RoundTripsMaximumLengthSetupText()
     {
-        await using var fixture = new DevelopmentApiFixture();
+        await using var fixture = new StorySetupEndpointTests.SetupApiFixture();
         using var client = await CreateAuthenticatedClientAsync(fixture);
         var sessionId = await SeedOwnedSessionAsync(fixture);
         var genre = string.Concat(Enumerable.Repeat("Mythic noir ", 50))[..StorySessionFieldLimits.GenreMaxLength];
@@ -186,7 +186,7 @@ public class SessionEndpointTests
         Assert.Equal("Ari", stored.HeroName);
     }
 
-    private static async Task<System.Net.Http.HttpClient> CreateAuthenticatedClientAsync(DevelopmentApiFixture fixture)
+    private static async Task<System.Net.Http.HttpClient> CreateAuthenticatedClientAsync(ApiFixture fixture)
     {
         var client = fixture.CreateClient();
         var loginResponse = await client.PostAsync("/api/auth/dev-login", null);
@@ -196,7 +196,7 @@ public class SessionEndpointTests
         return client;
     }
 
-    private static async Task<Guid> SeedOwnedSessionAsync(DevelopmentApiFixture fixture)
+    private static async Task<Guid> SeedOwnedSessionAsync(ApiFixture fixture)
     {
         using var scope = fixture.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
