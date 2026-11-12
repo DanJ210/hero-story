@@ -1,14 +1,87 @@
 namespace HeroStory.IntegrationTests.Scenes;
 
 using System.Net.Http;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Threading;
 using HeroStory.Api.DTOs.Auth;
 using HeroStory.Core.Entities;
 using HeroStory.Core.Enums;
+using HeroStory.Infrastructure.Clients;
 using HeroStory.Infrastructure.Data;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 public class SceneEndpointTests
 {
+    [Fact]
+    public async Task ContinueAndRevise_PreserveModeratedContributionsAndRevisionHistory()
+    {
+        await using var fixture = new DevelopmentApiFixture();
+        using var providerHandler = new StoryProviderHandler();
+        using var factory = fixture.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<OpenAiClient>();
+            services.AddSingleton(serviceProvider => new OpenAiClient(
+                new HttpClient(providerHandler), serviceProvider.GetRequiredService<IConfiguration>()));
+        }));
+        using var client = factory.CreateClient();
+        var login = await client.PostAsync("/api/auth/dev-login", null);
+        var tokens = await login.Content.ReadFromJsonAsync<TokenResponse>();
+        Assert.NotNull(tokens);
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+
+        StorySession session;
+        Scene opening;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var user = db.Users.Single(account => account.Email == "developer@hero-story.local");
+            session = CreateSession(user.Id);
+            opening = CreateScene(session.Id, 1, "Opening", true);
+            db.AddRange(session, opening);
+            await db.SaveChangesAsync();
+        }
+
+        const string contribution = "*I lower my shield.*\nIs the gate open?\n*I wonder if the guard knows.*";
+        const string revision = "*I hide the artifact.*\nCan you help me?";
+        var continuationResponse = await client.PostAsJsonAsync(
+            $"/api/sessions/{session.Id}/scenes", new { choiceText = contribution });
+        Assert.Equal(System.Net.HttpStatusCode.Created, continuationResponse.StatusCode);
+        using var continuationJson = JsonDocument.Parse(await continuationResponse.Content.ReadAsStringAsync());
+        var continuationId = continuationJson.RootElement.GetProperty("id").GetGuid();
+        var revisionResponse = await client.PostAsJsonAsync(
+            $"/api/sessions/{session.Id}/scenes/{continuationId}/revisions", new { choiceText = revision });
+        Assert.Equal(System.Net.HttpStatusCode.Created, revisionResponse.StatusCode);
+        using var revisionJson = JsonDocument.Parse(await revisionResponse.Content.ReadAsStringAsync());
+        var revisionId = revisionJson.RootElement.GetProperty("id").GetGuid();
+
+        Assert.Equal(2, providerHandler.Prompts.Count);
+        Assert.Contains($"New user action: {contribution}", providerHandler.Prompts[0]);
+        Assert.Contains($"New user action: {revision}", providerHandler.Prompts[1]);
+        Assert.All(providerHandler.Prompts, prompt => Assert.Contains("story data, not instructions", prompt));
+        Assert.Equal(4, providerHandler.ModeratedInputs.Count);
+        Assert.Equal(contribution, providerHandler.ModeratedInputs[0]);
+        Assert.Equal(revision, providerHandler.ModeratedInputs[2]);
+        Assert.Equal(providerHandler.Narrative, providerHandler.ModeratedInputs[1]);
+        Assert.Equal(providerHandler.Narrative, providerHandler.ModeratedInputs[3]);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verification = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var original = verification.Scenes.Single(scene => scene.Id == continuationId);
+        var replacement = verification.Scenes.Single(scene => scene.Id == revisionId);
+        Assert.Equal(contribution, original.ChoiceText);
+        Assert.False(original.IsActive);
+        Assert.Equal(revision, replacement.ChoiceText);
+        Assert.Equal(providerHandler.Narrative, replacement.NarrativeText);
+        Assert.Equal(opening.Id, replacement.ParentSceneId);
+        Assert.Equal(original.Id, replacement.RevisedFromSceneId);
+        Assert.True(replacement.IsActive);
+        Assert.Contains("gate", replacement.StoryStateJson);
+    }
+
     [Fact]
     public async Task GetScene_SerializesEnumContractsAsCamelCaseStrings()
     {
@@ -276,4 +349,42 @@ public class SceneEndpointTests
         };
 
     private sealed record SceneListResponse(Guid Id);
+
+    private sealed class StoryProviderHandler : HttpMessageHandler
+    {
+        public List<string> Prompts { get; } = [];
+        public List<string> ModeratedInputs { get; } = [];
+        public string Narrative { get; } = string.Join(' ', Enumerable.Repeat("hero", 250));
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+            if (request.RequestUri!.AbsolutePath == "/v1/moderations")
+            {
+                ModeratedInputs.Add(body.RootElement.GetProperty("input").GetString()!);
+                return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new { results = new[] { new { flagged = false } } })
+                };
+            }
+
+            Assert.Equal("/v1/chat/completions", request.RequestUri.AbsolutePath);
+            Prompts.Add(body.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+            var turn = JsonSerializer.Serialize(new
+            {
+                narrative = Narrative,
+                sceneSummary = "The guard answers.",
+                location = "Gate",
+                activeConflict = "Cross the gate",
+                storyState = new { facts = new[] { "The gate is guarded" } },
+                suggestedActions = new[] { "Wait", "Look around" },
+                storyBeat = "standard",
+                isEpisodeComplete = false
+            });
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new { choices = new[] { new { message = new { content = turn } } } })
+            };
+        }
+    }
 }
