@@ -38,10 +38,11 @@ public class StorySessionInputValidationTests
     [Fact]
     public void FieldLimits_CombinedOpeningModerationInputFitsModerationLimit()
     {
-        // The opening scene moderates Title, Genre, HeroArchetype and HeroName joined by three newlines.
-        var combined = string.Join('\n', MaxTitle, MaxGenre, MaxArchetype, MaxHeroName);
+        // The opening scene moderates all five setup fields joined by four newlines.
+        var maximumSetup = new string('s', StorySessionFieldLimits.StorySetupMaxLength);
+        var combined = string.Join('\n', MaxTitle, MaxGenre, MaxArchetype, MaxHeroName, maximumSetup);
 
-        Assert.True(combined.Length <= ModerationService.MaximumInputCharacters);
+        Assert.Equal(StorySessionFieldLimits.MaximumSetupModerationCharacters, combined.Length);
     }
 
     [Fact]
