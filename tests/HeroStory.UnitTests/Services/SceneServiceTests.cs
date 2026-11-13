@@ -885,8 +885,8 @@ public class SceneServiceTests
 
         await using var verificationContext = new AppDbContext(options);
         var scenes = await verificationContext.Scenes.Where(scene => scene.SessionId == session.Id).ToListAsync();
-        Assert.Single(scenes.Where(scene => scene.IsActive));
-        Assert.Single(scenes.Where(scene => !scene.IsActive));
+        Assert.Single(scenes, scene => scene.IsActive);
+        Assert.Single(scenes, scene => !scene.IsActive);
     }
 
     [Fact]

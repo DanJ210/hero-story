@@ -44,11 +44,11 @@ See [docs/development-guide.md](docs/development-guide.md) for toolchain expecta
 1. **Create local environment file**
    - Copy `src/HeroStory.Frontend/.env.example` to `src/HeroStory.Frontend/.env`.
    - Non-secret .NET development settings are committed in each project's `appsettings.Development.json`.
-   - Store the SQL connection string in both .NET projects with `dotnet user-secrets set "ConnectionStrings:Default" "Server=localhost,1433;Database=HeroStoryDb;User Id=sa;Password=<SQL_PASSWORD>;TrustServerCertificate=True" --project <PROJECT_PATH>`.
+   - Store the SQL connection string in both .NET projects with `dotnet user-secrets set "ConnectionStrings:Default" "Server=localhost,1434;Database=HeroStoryDb;User Id=sa;Password=<SQL_PASSWORD>;TrustServerCertificate=True" --project <PROJECT_PATH>`.
    - Store `JWT_SECRET` and `OPENAI_API_KEY` in the API project's user secrets. Never put real secrets in committed appsettings files.
    - Environment variables remain supported as higher-precedence overrides. The root `.env` is read automatically by Docker Compose, but not by `dotnet run`.
 2. **Start local dependencies with Docker Compose**
-   - Start SQL Server and Azurite with `docker compose up -d`, or reuse existing services on ports `1433` and `10000`-`10002`.
+   - Start SQL Server and Azurite with `docker compose up -d`, or reuse existing services. Compose maps SQL Server to host port `1434` and uses Azurite ports `10000`-`10002`.
    - When using this repository's Compose stack, copy `.env.example` to `.env`; Compose reads `${MSSQL_SA_PASSWORD}` and `${ACCEPT_EULA}` from it.
    - When reusing an existing SQL container, use the password that initialized that container in both projects' `ConnectionStrings:Default` user secret. Changing `.env` does not reset an existing container password.
    - Stop the dependencies with `docker compose down`; named volumes preserve local data between starts.

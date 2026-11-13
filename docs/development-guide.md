@@ -6,6 +6,7 @@
 - Node.js (for Vue frontend)
 - Docker Desktop (for local SQL/Azurite dependencies)
 - Optional: Azure CLI and Azurite tooling if running storage services outside Docker
+- A valid Six Labors ImageSharp license for Release builds. Provide `SixLaborsLicenseKey` or `SixLaborsLicenseFile` outside source control; see [Six Labors pricing](https://sixlabors.com/pricing/).
 
 ## Environment configuration
 
@@ -13,11 +14,11 @@ The .NET hosts load configuration in the normal order: base appsettings, `appset
 
 1. Copy `src/HeroStory.Frontend/.env.example` to `src/HeroStory.Frontend/.env`.
 2. Configure the API secrets:
-   - `dotnet user-secrets set "ConnectionStrings:Default" "Server=localhost,1433;Database=HeroStoryDb;User Id=sa;Password=<SQL_PASSWORD>;TrustServerCertificate=True" --project src/HeroStory.Api`
+   - `dotnet user-secrets set "ConnectionStrings:Default" "Server=localhost,1434;Database=HeroStoryDb;User Id=sa;Password=<SQL_PASSWORD>;TrustServerCertificate=True" --project src/HeroStory.Api`
    - `dotnet user-secrets set "JWT_SECRET" "<32-BYTE-OR-LONGER-SECRET>" --project src/HeroStory.Api`
    - `dotnet user-secrets set "OPENAI_API_KEY" "<OPENAI-KEY>" --project src/HeroStory.Api`
 3. Configure the worker SQL secret:
-   - `dotnet user-secrets set "ConnectionStrings:Default" "Server=localhost,1433;Database=HeroStoryDb;User Id=sa;Password=<SQL_PASSWORD>;TrustServerCertificate=True" --project src/HeroStory.Worker`
+   - `dotnet user-secrets set "ConnectionStrings:Default" "Server=localhost,1434;Database=HeroStoryDb;User Id=sa;Password=<SQL_PASSWORD>;TrustServerCertificate=True" --project src/HeroStory.Worker`
 4. Review non-secret values in both projects' `appsettings.Development.json` and the frontend `.env`.
 5. Copy `.env.example` to `.env` only when using this repository's Docker Compose stack or environment-variable overrides.
 
@@ -25,7 +26,7 @@ When sharing an existing SQL Server container, `<SQL_PASSWORD>` is the password 
 
 ## Running services locally
 
-Start the committed SQL Server and Azurite stack, or reuse compatible services already listening on SQL port `1433` and Azurite ports `10000`-`10002`:
+Start the committed SQL Server and Azurite stack, or reuse compatible services. The Compose SQL Server listens on host port `1434` (container port `1433`), and Azurite listens on ports `10000`-`10002`. When using another SQL Server, set its host and port in both projects' connection strings:
 
 1. `docker compose up -d`
 2. `docker compose ps`

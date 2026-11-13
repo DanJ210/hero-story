@@ -205,7 +205,7 @@ public class UserPortraitServiceTests
             .OrderBy(job => job.Status)
             .ToListAsync();
         Assert.Equal(3, settledJobs.Count(job => job.Status == JobStatus.Poisoned));
-        Assert.Single(settledJobs.Where(job => job.Status == JobStatus.Completed));
+        Assert.Single(settledJobs, job => job.Status == JobStatus.Completed);
         Assert.All(settledJobs.Where(job => job.Status == JobStatus.Poisoned), job =>
         {
             Assert.NotNull(job.CompletedAt);

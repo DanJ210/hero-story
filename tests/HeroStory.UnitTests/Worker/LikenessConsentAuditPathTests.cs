@@ -81,8 +81,8 @@ public class LikenessConsentAuditPathTests
         Assert.Equal(HeroStory.Core.Enums.JobStatus.Completed, job.Status);
         Assert.Equal("https://images.test/generated", scene.ImageUrl);
         var auditEvents = await dbContext.PortraitAuditEvents.OrderBy(audit => audit.EventType).ToListAsync();
-        var requested = Assert.Single(auditEvents.Where(audit => audit.EventType == "likeness_use_requested"));
-        var started = Assert.Single(auditEvents.Where(audit => audit.EventType == "likeness_provider_use_started"));
+        var requested = Assert.Single(auditEvents, audit => audit.EventType == "likeness_use_requested");
+        var started = Assert.Single(auditEvents, audit => audit.EventType == "likeness_provider_use_started");
         Assert.Equal(userId, requested.ActorUserId);
         Assert.Equal(userId, requested.SubjectUserId);
         Assert.Equal(session.Id, requested.SessionId);
